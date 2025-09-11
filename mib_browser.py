@@ -51,8 +51,8 @@ BASE_HTML = """
 
     /* Two-column layout */
     main { display: grid; grid-template-columns: 320px 1fr; align-items: start; }
-    aside { padding: 12px; /* overflow removed for single page scroll */ }
-    section { padding: 12px; /* overflow removed for single page scroll */ }
+    aside { padding: 12px; }
+    section { padding: 12px; }
 
     .card { border: 1px solid #eee; border-radius: 10px; padding: 10px 12px; margin: 8px 0; }
     .muted { color: #666; }
@@ -92,11 +92,8 @@ BASE_HTML = """
     .badge.ident { background:#eefaf0; border-color:#caefda; }
     .badge.note  { background:#fff6e5; border-color:#ffe3b5; }
 
-    /* Inspector panel (right side): scrolls with page by default */
-    #inspector {
-      position: static; /* default: not pinned, scrolls with page */
-      border:1px solid #eee; border-radius: 10px; padding: 10px 12px;
-    }
+    /* Inspector panel (right side) */
+    #inspector { position: static; border:1px solid #eee; border-radius: 10px; padding: 10px 12px; }
     #inspector.pinned { position: sticky; top: 70px; }
     .breadcrumb { font-size:12px; color:#666; margin-bottom:8px; word-break:break-all; }
   </style>
@@ -165,9 +162,13 @@ BASE_HTML = """
 </main>
 
 <script>
-function escHtml(s){ return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+// ---- make helpers & actions GLOBAL (needed for inline handlers) ----
+window.escHtml = function(s){
+  return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+};
+window.escAttr = function(s){ return window.escHtml(String(s ?? '')); };
 
-function highlight(term, rootId){
+window.highlight = function(term, rootId){
   const el = document.getElementById(rootId || 'content');
   if(!el || !term) return;
   const rx = new RegExp(`(${term.replace(/[.*+?^${}()|[\\]\\\\]/g,'\\\\$&')})`,'gi');
@@ -176,10 +177,35 @@ function highlight(term, rootId){
       node.innerHTML = node.textContent.replace(rx,'<mark>$1</mark>');
     }
   });
-}
+};
 
-// Renders search results into the main column if present, else into #content
-async function doSearch(e){
+// Inspector utilities
+window.setInspector = function({name='', oid='', klass='', syntax='', desc='', path=''}){
+  const byId = id => document.getElementById(id);
+  // If inspector is not present (home page), silently no-op
+  if(!byId('i_name')) return;
+  byId('i_name').textContent   = name;
+  byId('i_oid').textContent    = oid;
+  byId('i_class').textContent  = klass;
+  byId('i_syntax').textContent = syntax;
+  byId('i_desc').innerHTML     = (desc || '').replace(/\\n/g,'<br>');
+  byId('crumb').textContent    = path;
+  byId('inspector')?.scrollIntoView({ block:'nearest', behavior:'smooth' });
+};
+window.inspectSearchResult = function(card){
+  const d = card.dataset;
+  window.setInspector({
+    name:  d.name,
+    oid:   d.oid,
+    klass: d.klass,
+    syntax:d.syntax,
+    desc:  d.desc,
+    path:  d.path
+  });
+};
+
+// Search
+window.doSearch = async function(e){
   if(e){ e.preventDefault(); }
   const q = document.getElementById('q').value.trim();
   if(!q){ return; }
@@ -188,16 +214,26 @@ async function doSearch(e){
   const data = await res.json();
 
   // Prefer main column on module page; fallback to #content (home)
-  const maincol = document.getElementById('maincol');
+  const maincol   = document.getElementById('maincol');
   const container = maincol || document.getElementById('content');
 
-  let html = `<h2>Search results for "<em>${escHtml(q)}</em>"</h2>`;
+  let html = `<h2>Search results for "<em>${window.escHtml(q)}</em>"</h2>`;
   if(data.results.length === 0){
     html += `<p class="muted">No matches.</p>`;
   } else {
     html += data.results.map(n => `
-      <div class="card">
-        <div class="row"><strong>${(n.name || '(unnamed)')}</strong>
+      <div class="card"
+           role="button" tabindex="0"
+           onclick="inspectSearchResult(this)"
+           onkeydown="if(event.key==='Enter'||event.key===' '){inspectSearchResult(this)}"
+           data-name="${window.escAttr(n.name || '(unnamed)')}"
+           data-oid="${window.escAttr(n.oid || '')}"
+           data-klass="${window.escAttr(n.klass || '')}"
+           data-syntax="${window.escAttr(n.syntax || '')}"
+           data-desc="${window.escAttr(n.description || '')}"
+           data-path="${window.escAttr(n.oid || n.name || '')}">
+        <div class="row">
+          <strong>${(n.name || '(unnamed)')}</strong>
           <span class="badge">${n.klass || ''}</span>
           <span class="badge">${n.syntax || ''}</span>
         </div>
@@ -210,40 +246,34 @@ async function doSearch(e){
     `).join('');
   }
   container.innerHTML = html;
-  highlight(q, container.id);
-}
+  window.highlight(q, container.id);
+};
 
-function resetSearch(){
+// Misc UI
+window.resetSearch = function(){
   const q = document.getElementById('q'); if(q){ q.value = ''; }
   const path = window.location.pathname || '';
-  if(path.startsWith('/module/')){
-    // Reload current module page to restore the tree (and keep inspector)
-    window.location.reload();
-  } else {
-    window.location = '/';
-  }
-}
+  if(path.startsWith('/module/')){ window.location.reload(); } else { window.location = '/'; }
+};
 
-function expandAll(){
-  const tree = document.getElementById('tree');
-  if(!tree) return;
-  tree.querySelectorAll('details').forEach(d => { d.open = true; });
-}
-function collapseAll(){
-  const tree = document.getElementById('tree');
-  if(!tree) return;
-  tree.querySelectorAll('details').forEach(d => d.open = false);
-}
-function expandToLevel(level){
+window.expandAll = function(){
   const tree = document.getElementById('tree'); if(!tree) return;
-  collapseAll();
+  tree.querySelectorAll('details').forEach(d => { d.open = true; });
+};
+window.collapseAll = function(){
+  const tree = document.getElementById('tree'); if(!tree) return;
+  tree.querySelectorAll('details').forEach(d => d.open = false);
+};
+window.expandToLevel = function(level){
+  const tree = document.getElementById('tree'); if(!tree) return;
+  window.collapseAll();
   tree.querySelectorAll('details').forEach(d => {
     const depth = (d.dataset.path || '').split('.').filter(Boolean).length;
     if(depth <= level){ d.open = true; }
   });
-}
+};
 
-function copyText(t){
+window.copyText = function(t){
   if(!t) return;
   if (navigator.clipboard && window.isSecureContext) {
     navigator.clipboard.writeText(t).catch(()=>{});
@@ -253,41 +283,36 @@ function copyText(t){
     ta.focus(); ta.select(); try { document.execCommand('copy'); } catch(e){}
     document.body.removeChild(ta);
   }
-}
+};
 
-function expandChildren(ev, btn){
+window.expandChildren = function(ev, btn){
   ev.preventDefault(); ev.stopPropagation();
   const det = btn.closest('details');
   if(!det) return;
   det.open = true;
   det.querySelectorAll(':scope details').forEach(d => d.open = true);
-}
+};
 
-function toggleInspectorPin(btn){
+window.toggleInspectorPin = function(btn){
   const insp = document.getElementById('inspector');
   if(!insp) return;
   insp.classList.toggle('pinned');
   btn.textContent = insp.classList.contains('pinned') ? 'Unpin' : 'Pin';
-}
+};
 
-function selectNode(ev, summaryEl){
-  // Normal toggle + populate inspector
+window.selectNode = function(ev, summaryEl){
   const det = summaryEl.closest('details'); if(!det) return;
-  const name = det.dataset.name || '';
-  const oid  = det.dataset.oid  || '';
-  const klass= det.dataset.class|| '';
-  const syn  = det.dataset.syntax|| '';
-  const desc = det.dataset.desc || '';
-  const path = det.dataset.path || '';
+  window.setInspector({
+    name:   det.dataset.name  || '',
+    oid:    det.dataset.oid   || '',
+    klass:  det.dataset.class || '',
+    syntax: det.dataset.syntax|| '',
+    desc:   det.dataset.desc  || '',
+    path:   det.dataset.path  || ''
+  });
+};
 
-  const byId = id => document.getElementById(id);
-  byId('i_name') && (byId('i_name').textContent = name);
-  byId('i_oid') && (byId('i_oid').textContent = oid);
-  byId('i_class') && (byId('i_class').textContent = klass);
-  byId('i_syntax') && (byId('i_syntax').textContent = syn);
-  byId('i_desc') && (byId('i_desc').innerHTML = (desc || '').replace(/\\n/g,'<br>'));
-  byId('crumb') && (byId('crumb').textContent = path);
-}
+console.log('[MIB Browser] client script loaded');
 </script>
 </body>
 </html>
@@ -322,11 +347,11 @@ MODULE_HTML = """
       {% endif %}
     </div>
     <div>
-      <div id="inspector">
-        <div class="row" style="justify-content: space-between; align-items:center; margin-bottom:6px;">
-          <strong class="small muted">Inspector</strong>
-          <button class="icon-btn" type="button" onclick="toggleInspectorPin(this)" title="Pin/unpin inspector">Pin</button>
-        </div>
+      <div id="inspector" class="pinned">
+          <div class="row" style="justify-content: space-between; align-items:center; margin-bottom:6px;">
+            <strong class="small muted">Inspector</strong>
+            <button class="icon-btn" type="button" onclick="toggleInspectorPin(this)" title="Pin/unpin inspector">Unpin</button>
+          </div>
         <div class="breadcrumb" id="crumb"></div>
         <div class="kv small">
           <div>Name</div><div id="i_name" class="mono"></div>
@@ -568,29 +593,32 @@ def render_tree(tree: Dict[str, Any]) -> str:
         desc_html = f"<div class='small muted'>{html.escape(desc).replace('\\n','<br>')}</div>" if desc else ""
 
         return f"""
-<details data-oid="{data_oid}" data-name="{data_name}" data-class="{data_class}" data-syntax="{data_syn}" data-desc="{data_desc}" data-path="{data_path}">
-  <summary onclick="selectNode(event,this)" class="node">
-    <span class="tw">▶</span>
-    {_icon(klass)}
-    <strong>{html.escape(title)}</strong>
-    {_badge(klass)}
-    <span class="node-actions">
-      <button class="icon-btn" type="button" onclick="expandChildren(event,this)">Expand</button>
-      <button class="icon-btn" type="button" onclick="event.preventDefault(); event.stopPropagation(); copyText('{data_oid}')">Copy OID</button>
-      <button class="icon-btn" type="button" onclick="event.preventDefault(); event.stopPropagation(); copyText('{data_name}')">Copy name</button>
-    </span>
-  </summary>
-  <div class="card small">
-    <div class="kv">
-      <div>OID</div><div>{html.escape(oid)}</div>
-      <div>Class</div><div>{html.escape(klass)}</div>
-      <div>Syntax</div><div>{html.escape(syntax)}</div>
-    </div>
-    {desc_html}
-  </div>
-  {inner}
-</details>
-"""
+          <details data-oid="{data_oid}" data-name="{data_name}" data-class="{data_class}" data-syntax="{data_syn}" data-desc="{data_desc}" data-path="{data_path}">
+            <summary onclick="selectNode(event,this)" class="node">
+              <span class="tw">▶</span>
+              {_icon(klass)}
+              <strong>{html.escape(title)}</strong>
+              {_badge(klass)}
+              <span class="node-actions">
+                <button class="icon-btn" type="button" onclick="expandChildren(event,this)">Expand</button>
+                <button class="icon-btn" type="button" onclick="event.preventDefault(); event.stopPropagation(); copyText('{data_oid}')">Copy OID</button>
+                <button class="icon-btn" type="button" onclick="event.preventDefault(); event.stopPropagation(); copyText('{data_name}')">Copy name</button>
+              </span>
+            </summary>
+            <div class="card small"
+                onclick="selectNode(event,this)"
+                onkeydown="if(event.key==='Enter'||event.key===' ') selectNode(event,this)"
+                role="button" tabindex="0" aria-label="Select node">
+              <div class="kv">
+                <div>OID</div><div>{html.escape(oid)}</div>
+                <div>Class</div><div>{html.escape(klass)}</div>
+                <div>Syntax</div><div>{html.escape(syntax)}</div>
+              </div>
+              {desc_html}
+            </div>
+            {inner}
+          </details>
+          """
 
     return "".join(_node_html(v, k, k) for k, v in sorted(tree.items(), key=lambda kv: _sort_key(kv[0])))
 
@@ -751,7 +779,7 @@ def api_snmp_get():
     out = []
     for oidObj, val in varBinds:
         out.append(f"{oidObj.prettyPrint()} = {val.prettyPrint()}")
-    return "\\n".join(out)
+    return "\n".join(out)
 
 @app.route("/api/snmp/walk", methods=["POST"])
 def api_snmp_walk():
@@ -780,9 +808,9 @@ def api_snmp_walk():
         for oidObj, val in varBinds:
             lines.append(f"{oidObj.prettyPrint()} = {val.prettyPrint()}")
         if len(lines) > 5000:
-            lines.append("... truncated ...")
-            break
-    return "\\n".join(lines)
+          lines.append("... truncated ...")
+          break
+    return "\n".join(lines)
 
 # ==========================
 # Main
