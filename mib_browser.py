@@ -5,7 +5,6 @@ Single-file Web MIB Browser — no PySMI/PySNMP compile needed.
 - Parses textual MIBs (.mib/.txt) directly with a best-effort SMIv2 parser
 - Builds a browsable OID tree (supports numeric + symbolic segments)
 - Full-text search on name / OID / type / description
-- Optional Quick SNMP (GET/WALK) if pysnmp is installed (pure Python)
 """
 from __future__ import annotations
 
@@ -16,15 +15,6 @@ from typing import Dict, Any, List, Tuple, Optional
 from flask import Flask, request, redirect, url_for, render_template_string, jsonify
 from jinja2.loaders import DictLoader
 
-# ---- Optional SNMP (pure Python) ----
-try:
-    from pysnmp.hlapi import (
-        SnmpEngine, CommunityData, UdpTransportTarget, ContextData,
-        ObjectType, ObjectIdentity, getCmd, nextCmd
-    )
-    HAS_PYSNMP = True
-except Exception:
-    HAS_PYSNMP = False
 
 app = Flask(__name__)
 
@@ -137,23 +127,7 @@ BASE_HTML = """
       {% endfor %}
     </div>
 
-    {% if has_pysnmp %}
-    <div class="card">
-      <strong>Quick SNMP</strong>
-      <form onsubmit="snmpGet(event)" class="small">
-        <div class="kv">
-          <label>Host</label><input id="snmpHost" placeholder="192.0.2.10" />
-          <label>Community</label><input id="snmpCommunity" value="public" />
-          <label>OID</label><input id="snmpOid" placeholder="1.3.6.1.2.1.1.1.0" />
-        </div>
-        <div style="margin-top:6px;">
-          <button class="btn" type="submit">SNMP GET</button>
-          <button class="btn" type="button" onclick="snmpWalk()">WALK</button>
-        </div>
-      </form>
-      <pre id="snmpOut" class="small"></pre>
-    </div>
-    {% endif %}
+
   </aside>
 
   <section>
@@ -383,7 +357,6 @@ app.jinja_loader = DictLoader({
     "home.html": HOME_HTML,
     "module.html": MODULE_HTML,
 })
-app.jinja_env.globals["has_pysnmp"] = HAS_PYSNMP
 
 # ==========================
 # Storage
@@ -450,43 +423,58 @@ def _parse_arc_token(tok: str) -> Tuple[str, Optional[int]]:
     return (tok, None)
 
 def _resolve_braced_oid(body: str, sym2oid: Dict[str, str]) -> str:
-    parts = [p for p in body.replace("\\n", " ").split() if p]
-    if not parts: return ""
+    """
+    Resolve `{ parent arcs... }` into a dotted OID.
+    - Uses BASE_OIDS and sym2oid for known names
+    - Keeps symbolic segments if numeric parents are unknown
+    """
+    parts = [p for p in body.replace("\n", " ").split() if p]
+    if not parts:
+        return ""
     tokens = []
     for p in parts:
         for t in p.split(","):
             t = t.strip()
-            if t: tokens.append(t)
+            if t:
+                tokens.append(t)
+
     path: List[str] = []
     parent_tok, _ = _parse_arc_token(tokens[0])
 
-    if re.fullmatch(r"\\d+(?:\\.\\d+)+", parent_tok):
+    # Parent may be dotted numeric, pure number, known base, or known symbol
+    if re.fullmatch(r"\d+(?:\.\d+)+", parent_tok):
         path = parent_tok.split(".")
     elif parent_tok.isdigit():
         path = [parent_tok]
     else:
         base = sym2oid.get(parent_tok) or BASE_OIDS.get(parent_tok)
-        path = (base.split(".") if base else [parent_tok])
+        path = base.split(".") if base else [parent_tok]
 
+    # Remaining arcs
     for tok in tokens[1:]:
         name, num = _parse_arc_token(tok)
         if name.isdigit():
             path.append(name)
-        elif re.fullmatch(r"\\d+(?:\\.\\d+)+", name):
+        elif re.fullmatch(r"\d+(?:\.\d+)+", name):
             path.extend(name.split("."))
         elif num is not None:
-            path.append(str(num))
+            path.append(str(num))   # name(number) → append number
         else:
-            path.append(name)
+            path.append(name)       # unknown symbol → keep symbolic
     return ".".join([str(x) for x in path if str(x) != ""])
 
 def _extract_field(block: str, key: str) -> str:
-    m = re.search(rf"\\b{key}\\b\\s+(.*?)(?:\\n[A-Z\\-]+\\b|::=|\\Z)", block, re.S)
-    if not m: return ""
+    # Find e.g. SYNTAX / STATUS / DESCRIPTION inside an OBJECT-* body.
+    # Stop at the next ALL-CAPS token on a new line, or '::=', or end-of-string.
+    m = re.search(rf"\b{key}\b\s+(.*?)(?:\n[A-Z\-]+\b|::=|\Z)", block, re.S)
+    if not m:
+        return ""
     val = m.group(1).strip()
     if key == "DESCRIPTION":
+        # take the first quoted chunk, multi-line safe
         mq = re.search(r'"(.*?)"', val, re.S)
-        if mq: return mq.group(1).strip()
+        if mq:
+            return mq.group(1).strip()
     return " ".join(val.split())
 
 def parse_mib_text(text: str) -> Dict[str, Any]:
@@ -546,21 +534,27 @@ def build_tree(nodes: List[Dict[str, Any]]) -> Dict[str, Any]:
     return root
 
 def render_tree(tree: Dict[str, Any]) -> str:
+    import html as _html
+
     def _sort_key(k: str):
-        try: return (0, int(k))
-        except Exception: return (1, k.lower())
+        try:
+            return (0, int(k))
+        except Exception:
+            return (1, k.lower())
 
     def _badge(klass: str) -> str:
-        if not klass: return ""
+        if not klass:
+            return ""
         k = klass.upper()
-        if "OBJECT-TYPE" in k:      return '<span class="badge type">OBJECT-TYPE</span>'
-        if "OBJECT-IDENTITY" in k:  return '<span class="badge ident">OBJECT-IDENTITY</span>'
-        if "NOTIFICATION" in k:     return '<span class="badge note">NOTIFICATION</span>'
-        if "OBJECT IDENTIFIER" in k:return '<span class="badge">OID</span>'
-        return f'<span class="badge">{html.escape(klass)}</span>'
+        if "OBJECT-TYPE" in k:       return '<span class="badge type">OBJECT-TYPE</span>'
+        if "OBJECT-IDENTITY" in k:   return '<span class="badge ident">OBJECT-IDENTITY</span>'
+        if "NOTIFICATION" in k:      return '<span class="badge note">NOTIFICATION</span>'
+        if "OBJECT IDENTIFIER" in k: return '<span class="badge">OID</span>'
+        return f'<span class="badge">{_html.escape(klass)}</span>'
 
     def _icon(klass: str) -> str:
-        if not klass: return ""
+        if not klass:
+            return ""
         k = klass.upper()
         if "OBJECT-TYPE" in k:
             return '<svg width="12" height="12" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="12" fill="none" stroke="currentColor"/></svg>'
@@ -573,54 +567,70 @@ def render_tree(tree: Dict[str, Any]) -> str:
     def _node_html(nodeDict: Dict[str, Any], label: str, path: str) -> str:
         n     = nodeDict.get("__node__")
         kids  = nodeDict.get("__children__", {})
-        name  = (n and n.get("name")) or label
+        name  = (n and n.get("name")) or ""              # real name only if a node exists
         klass = (n and n.get("klass")) or ""
         syntax= (n and n.get("syntax")) or ""
         desc  = (n and n.get("description")) or ""
         oid   = (n and n.get("oid")) or ""
-        title = name if name else label
+        title = name or label                             # show numeric/symbolic arc when no node
 
-        data_name = html.escape(title, quote=True)
-        data_class= html.escape(klass or "", quote=True)
-        data_syn  = html.escape(syntax or "", quote=True)
-        data_desc = html.escape(desc or "", quote=True)
-        data_oid  = html.escape(oid or "", quote=True)
-        data_path = html.escape(path or label, quote=True)
+        # Render children first (so we can decide markup knowing kids exist)
+        inner = "".join(
+            _node_html(v, k, f"{path}.{k}" if path else k)
+            for k, v in sorted(kids.items(), key=lambda kv: _sort_key(kv[0]))
+        )
 
-        inner = "".join(_node_html(v, k, f"{path}.{k}" if path else k)
-                        for k, v in sorted(kids.items(), key=lambda kv: _sort_key(kv[0])))
+        if not n:
+            # BRANCH-ONLY NODE (no MIB object bound here) -> compact row, no details card
+            return f"""
+<details data-path="{_html.escape(path or label, quote=True)}">
+  <summary class="node" onclick="selectNode(event,this)">
+    <span class="tw">▶</span>
+    <strong>{_html.escape(title)}</strong>
+    <span class="badge">branch</span>
+  </summary>
+  {inner}
+</details>
+"""
 
-        desc_html = f"<div class='small muted'>{html.escape(desc).replace('\\n','<br>')}</div>" if desc else ""
+        # REAL NODE (has data) -> full card + actions, description, etc.
+        data_name = _html.escape(title, quote=True)
+        data_class= _html.escape(klass or "", quote=True)
+        data_syn  = _html.escape(syntax or "", quote=True)
+        data_desc = _html.escape(desc or "", quote=True)
+        data_oid  = _html.escape(oid or "", quote=True)
+        data_path = _html.escape(path or label, quote=True)
+
+        desc_html = f"<div class='small muted'>{_html.escape(desc).replace('\\n','<br>')}</div>" if desc else ""
 
         return f"""
-          <details data-oid="{data_oid}" data-name="{data_name}" data-class="{data_class}" data-syntax="{data_syn}" data-desc="{data_desc}" data-path="{data_path}">
-            <summary onclick="selectNode(event,this)" class="node">
-              <span class="tw">▶</span>
-              {_icon(klass)}
-              <strong>{html.escape(title)}</strong>
-              {_badge(klass)}
-              <span class="node-actions">
-                <button class="icon-btn" type="button" onclick="expandChildren(event,this)">Expand</button>
-                <button class="icon-btn" type="button" onclick="event.preventDefault(); event.stopPropagation(); copyText('{data_oid}')">Copy OID</button>
-                <button class="icon-btn" type="button" onclick="event.preventDefault(); event.stopPropagation(); copyText('{data_name}')">Copy name</button>
-              </span>
-            </summary>
-            <div class="card small"
-                onclick="selectNode(event,this)"
-                onkeydown="if(event.key==='Enter'||event.key===' ') selectNode(event,this)"
-                role="button" tabindex="0" aria-label="Select node">
-              <div class="kv">
-                <div>OID</div><div>{html.escape(oid)}</div>
-                <div>Class</div><div>{html.escape(klass)}</div>
-                <div>Syntax</div><div>{html.escape(syntax)}</div>
-              </div>
-              {desc_html}
-            </div>
-            {inner}
-          </details>
-          """
+<details data-oid="{data_oid}" data-name="{data_name}" data-class="{data_class}" data-syntax="{data_syn}" data-desc="{data_desc}" data-path="{data_path}">
+  <summary class="node" onclick="selectNode(event,this)">
+    <span class="tw">▶</span>
+    {_icon(klass)}
+    <strong>{_html.escape(title)}</strong>
+    {_badge(klass)}
+    <span class="node-actions">
+      <button class="icon-btn" type="button" onclick="expandChildren(event,this)">Expand</button>
+      <button class="icon-btn" type="button" onclick="event.preventDefault(); event.stopPropagation(); copyText('{data_oid}')">Copy OID</button>
+      <button class="icon-btn" type="button" onclick="event.preventDefault(); event.stopPropagation(); copyText('{data_name}')">Copy name</button>
+    </span>
+  </summary>
+  <div class="card small" onclick="selectNode(event,this)">
+    <div class="kv">
+      <div>OID</div><div>{_html.escape(oid)}</div>
+      <div>Class</div><div>{_html.escape(klass)}</div>
+      <div>Syntax</div><div>{_html.escape(syntax)}</div>
+    </div>
+    {desc_html}
+  </div>
+  {inner}
+</details>
+"""
 
-    return "".join(_node_html(v, k, k) for k, v in sorted(tree.items(), key=lambda kv: _sort_key(kv[0])))
+    return "".join(
+        _node_html(v, k, k) for k, v in sorted(tree.items(), key=lambda kv: _sort_key(kv[0]))
+    )
 
 def flatten_nodes(mod_name: str, doc: Dict[str, Any]) -> List[Dict[str, Any]]:
     out: List[Dict[str, Any]] = []
@@ -753,68 +763,9 @@ def api_search():
     hits = search_all(q)
     return jsonify({"results": hits})
 
-# ---- Optional SNMP endpoints (only if pysnmp is installed) ----
-@app.route("/api/snmp/get", methods=["POST"])
-def api_snmp_get():
-    if not HAS_PYSNMP:
-        return "PySNMP not installed", 400
-    data = request.get_json(force=True)
-    host = (data.get("host") or "").strip()
-    comm = (data.get("community") or "public").strip()
-    oid = (data.get("oid") or "").strip()
-    if not host or not oid:
-        return "host and oid required", 400
-    engine = SnmpEngine()
-    errInd, errStat, errIdx, varBinds = next(getCmd(
-        engine,
-        CommunityData(comm, mpModel=1),  # SNMPv2c
-        UdpTransportTarget((host, 161), timeout=2, retries=1),
-        ContextData(),
-        ObjectType(ObjectIdentity(oid))
-    ))
-    if errInd:
-        return f"Error: {errInd}", 500
-    if errStat:
-        return f"{errStat.prettyPrint()} at {errIdx and varBinds[int(errIdx)-1][0] or '?'}", 500
-    out = []
-    for oidObj, val in varBinds:
-        out.append(f"{oidObj.prettyPrint()} = {val.prettyPrint()}")
-    return "\n".join(out)
-
-@app.route("/api/snmp/walk", methods=["POST"])
-def api_snmp_walk():
-    if not HAS_PYSNMP:
-        return "PySNMP not installed", 400
-    data = request.get_json(force=True)
-    host = (data.get("host") or "").strip()
-    comm = (data.get("community") or "public").strip()
-    oid = (data.get("oid") or "").strip()
-    if not host or not oid:
-        return "host and oid required", 400
-    engine = SnmpEngine()
-    lines: List[str] = []
-    for (errInd, errStat, errIdx, varBinds) in nextCmd(
-        engine,
-        CommunityData(comm, mpModel=1),
-        UdpTransportTarget((host, 161), timeout=2, retries=1),
-        ContextData(),
-        ObjectType(ObjectIdentity(oid)),
-        lexicographicMode=True
-    ):
-        if errInd:
-            return f"Error: {errInd}", 500
-        if errStat:
-            return f"{errStat.prettyPrint()} at {errIdx and varBinds[int(errIdx)-1][0] or '?'}", 500
-        for oidObj, val in varBinds:
-            lines.append(f"{oidObj.prettyPrint()} = {val.prettyPrint()}")
-        if len(lines) > 5000:
-          lines.append("... truncated ...")
-          break
-    return "\n".join(lines)
 
 # ==========================
 # Main
 # ==========================
 if __name__ == "__main__":
-    app.jinja_env.globals["has_pysnmp"] = HAS_PYSNMP
     app.run(host="0.0.0.0", port=8000, debug=True)
