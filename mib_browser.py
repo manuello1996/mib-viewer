@@ -126,8 +126,6 @@ BASE_HTML = """
         </div>
       {% endfor %}
     </div>
-
-
   </aside>
 
   <section>
@@ -274,8 +272,36 @@ window.toggleInspectorPin = function(btn){
   btn.textContent = insp.classList.contains('pinned') ? 'Unpin' : 'Pin';
 };
 
-window.selectNode = function(ev, summaryEl){
-  const det = summaryEl.closest('details'); if(!det) return;
+/* --- ladder cascade: when clicking a pure branch, open down until fork/real node --- */
+window.openBranchCascade = function(det){
+  let cur = det;
+  while (cur && !cur.dataset.oid) {
+    cur.open = true;
+    const children = cur.querySelectorAll(':scope > details');
+    if (children.length !== 1) break;    // stop if fork or leaf
+    const next = children[0];
+    if (next.dataset.oid) {              // next is a real MIB node: open and stop
+      next.open = true;
+      break;
+    }
+    cur = next;                           // continue down the ladder
+  }
+};
+
+window.selectNode = function(ev, el){
+  const det = el.closest('details'); if(!det) return;
+
+  // If clicking a branch summary (no real node), auto-open ladder
+  const clickedSummary = (el.tagName === 'SUMMARY');
+  const isBranch = !det.dataset.oid;
+  if (clickedSummary && isBranch) {
+    ev.preventDefault();
+    ev.stopPropagation();
+    window.openBranchCascade(det);
+    return;
+  }
+
+  // Update inspector (for real nodes or when clicking the details card)
   window.setInspector({
     name:   det.dataset.name  || '',
     oid:    det.dataset.oid   || '',
@@ -321,11 +347,12 @@ MODULE_HTML = """
       {% endif %}
     </div>
     <div>
+      <!-- Inspector pinned by default -->
       <div id="inspector" class="pinned">
-          <div class="row" style="justify-content: space-between; align-items:center; margin-bottom:6px;">
-            <strong class="small muted">Inspector</strong>
-            <button class="icon-btn" type="button" onclick="toggleInspectorPin(this)" title="Pin/unpin inspector">Unpin</button>
-          </div>
+        <div class="row" style="justify-content: space-between; align-items:center; margin-bottom:6px;">
+          <strong class="small muted">Inspector</strong>
+          <button class="icon-btn" type="button" onclick="toggleInspectorPin(this)" title="Pin/unpin inspector">Unpin</button>
+        </div>
         <div class="breadcrumb" id="crumb"></div>
         <div class="kv small">
           <div>Name</div><div id="i_name" class="mono"></div>
@@ -574,14 +601,14 @@ def render_tree(tree: Dict[str, Any]) -> str:
         oid   = (n and n.get("oid")) or ""
         title = name or label                             # show numeric/symbolic arc when no node
 
-        # Render children first (so we can decide markup knowing kids exist)
+        # Compose children first
         inner = "".join(
             _node_html(v, k, f"{path}.{k}" if path else k)
             for k, v in sorted(kids.items(), key=lambda kv: _sort_key(kv[0]))
         )
 
         if not n:
-            # BRANCH-ONLY NODE (no MIB object bound here) -> compact row, no details card
+            # BRANCH-ONLY NODE (no MIB object bound here)
             return f"""
 <details data-path="{_html.escape(path or label, quote=True)}">
   <summary class="node" onclick="selectNode(event,this)">
@@ -593,7 +620,7 @@ def render_tree(tree: Dict[str, Any]) -> str:
 </details>
 """
 
-        # REAL NODE (has data) -> full card + actions, description, etc.
+        # REAL NODE
         data_name = _html.escape(title, quote=True)
         data_class= _html.escape(klass or "", quote=True)
         data_syn  = _html.escape(syntax or "", quote=True)
