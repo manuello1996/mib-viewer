@@ -318,7 +318,7 @@ snmpInBadCommunityUses OBJECT-TYPE
            access control mechanism which is used to control access
            to and visibility of MIB instrumentation specify the
            precise conditions that contribute to this value."
-    ::= { snmp 5 }
+    := { snmp 5 }
 
 snmpInASNParseErrs OBJECT-TYPE
     SYNTAX     Counter32

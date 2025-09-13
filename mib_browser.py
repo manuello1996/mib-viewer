@@ -6,9 +6,9 @@ Single-file Web MIB Browser — pure reader/visualizer (no SNMP).
 - Browsable OID tree (numeric + symbolic segments)
 - Full-text search on name / OID / type / description
   * Enum/bitfield rendering in Inspector (INTEGER {..} / BITS {..}), collapsible if long
-  * Compact/Verbose view toggle for tree cards (+ theme + font size A-/A+)
   * Auto-load *.mib from script folder (and subfolders)
   * Sidebar shows folder structure (collapsible), with Uploads grouped separately
+  * IMPORTS and MODULE-IDENTITY shown above the tree (not inside the tree)
 """
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ from jinja2.loaders import DictLoader
 app = Flask(__name__)
 
 # ==========================
-# Templates / Styles d/ JS
+# Templates / Styles / JS
 # ==========================
 BASE_HTML = """
 <!doctype html>
@@ -51,7 +51,7 @@ BASE_HTML = """
 
     .card { border: 1px solid #eee; border-radius: 10px; padding: 10px 12px; margin: 8px 0; }
     html.dark .card { border-color:#333; }
-    .muted { color: #666; }
+    .muted { color: #888; }
     html.dark .muted { color:#aaa; }
     input[type="text"], input[type="file"] { padding: 8px; border-radius: 8px; border:1px solid #ccc; }
     input[type="text"] { width: 80%; }
@@ -89,13 +89,14 @@ BASE_HTML = """
     .badge { display:inline-block; padding:2px 8px; border-radius: 999px; font-size: 11px; border:1px solid transparent; }
     .badge.type  { background:#eef6ff; border-color:#cfe5ff; color:#000; }
     .badge.ident { background:#eefaf0; border-color:#caefda; color:#000;}
-    .badge.note  { background:#fff6e5; border-color:#ffe3b5; }
+    .badge.note  { background:#fff6e5; border-color:#ffe3b5; color:#000;}
 
     /* Inspector panel (right side) */
     #inspector { position: static; border:1px solid #eee; border-radius: 10px; padding: 10px 12px; }
     html.dark #inspector { border-color:#333; }
     #inspector.pinned { position: sticky; top: 70px; }
     .breadcrumb { font-size:12px; color:#666; margin-bottom:8px; word-break:break-all; }
+    html.dark .breadcrumb { color:#aaa; }
 
     /* Compact mode: hide in-tree detail cards */
     body.compact .tree .card { display:none; }
@@ -120,6 +121,120 @@ BASE_HTML = """
     .fs-tree details { margin-left: 10px; }
     .fs-tree summary { cursor: pointer; }
     .fs-file { margin-left: 16px; }
+
+    /* Sidebar collapse/expand */
+    aside {
+      transition: width 0.25s ease, min-width 0.25s ease;
+      overflow: hidden;
+    }
+    aside.collapsed {
+      width: 0 !important;
+      min-width: 0 !important;
+      padding: 0 !important;
+      border: none;
+    }
+    aside.collapsed .fs-tree,
+    aside.collapsed h3 {
+      display: none;
+    }
+
+    /* Hover strip when collapsed */
+    #sidebar-hover {
+      position: absolute;
+      top: 0;
+      left: 0;
+      bottom: 0;
+      width: 12px;
+      background: transparent;
+      cursor: ew-resize;
+      z-index: 2000;
+    }
+    #sidebar-hover:hover {
+      background: rgba(128,128,128,0.1);
+    }
+    #sidebar-flyout {
+      position: absolute;
+      top: 0;
+      left: 12px;
+      bottom: 0;
+      width: 280px;
+      background: var(--flyout-bg, #fff);
+      border-right: 1px solid #ddd;
+      overflow-y: auto;
+      display: none;
+      z-index: 2001;
+      padding: 10px;
+    }
+    html.dark #sidebar-flyout {
+      --flyout-bg: #111;
+      border-color: #333;
+    }
+
+    /* Sidebar collapse system */
+    :root { --sidebar-width: 320px; --rail-width: 50px; }
+    main { display: grid; grid-template-columns: var(--sidebar-width) 1fr; align-items: start; }
+
+    /* When collapsed, sidebar width becomes a slim rail */
+    body.sidebar-collapsed main { grid-template-columns: var(--rail-width) 1fr; }
+
+    /* Sidebar itself scrollable */
+    #sidebar { overflow: auto; }
+
+    /* Hover rail  hidden normally, visible when collapsed */
+    #sidebar-rail {
+      position: fixed;
+      top: 64px;            /* below the header */
+      left: 0;
+      bottom: 0;
+      width: var(--rail-width, 12px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      user-select: none;
+      font-size: 10px;
+      color: #888;
+      border-right: 1px solid #ddd;
+      background: inherit;
+      z-index: 1100;
+      background-color: #000;
+      font-size: 25px;
+    }
+    html.dark #sidebar-rail { border-color:#333; color:#aaa; }
+    body.sidebar-collapsed #sidebar-rail { display: flex; }
+
+    /* Flyout panel (slides from left) */
+    #sidebar-flyout {
+      position: fixed;
+      top: 64px;              /* below your header */
+      left: 0;
+      bottom: 0;
+      width: min(420px, 85vw);
+      background: inherit;
+      border-right: 1px solid #ddd;
+      box-shadow: 0 2px 20px rgba(0,0,0,.2);
+      transform: translateX(-100%);
+      opacity: 0;
+      pointer-events: none;
+      transition: transform .18s ease, opacity .18s ease;
+      overflow: auto;
+      padding: 10px 12px;
+      z-index: 1200;
+    }
+    html.dark #sidebar-flyout { border-color:#333; box-shadow: 0 2px 20px rgba(0,0,0,.5); }
+
+    #sidebar-flyout.open {
+      transform: translateX(0);
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+
+    #collapse-rail {
+    font-size: 25px;
+    cursor: pointer;
+    }
+
   </style>
 </head>
 <body>
@@ -143,14 +258,17 @@ BASE_HTML = """
       <input id="q" class="grow" type="text" placeholder="Search (name, OID, type, description) ..." />
     </form>
     <span class="small muted">Modules loaded: {{ modules|length }}</span>
-    <button class="btn" type="button" onclick="toggleTheme()">Theme</button>
 
   </div>
 </header>
 
 <main>
-  <aside>
-    <h3 class="muted">Loaded MIBs</h3>
+  <aside id="sidebar">
+    <div class="row" style="justify-content: space-between; align-items:center;">
+      <h3 class="muted">Loaded MIBs</h3>
+      <div id="collapse-rail" title="Open MIBs panel" onclick="collapseSidebar()">◀️</div>
+
+    </div>
     {% if not modules %}
       <p class="muted">No MIBs parsed yet. Upload your .mib files or drop them next to this script.</p>
     {% endif %}
@@ -159,26 +277,92 @@ BASE_HTML = """
     </div>
   </aside>
 
+
+  <!-- Flyout that shows the sidebar content on hover/intent -->
+  <div id="sidebar-flyout" aria-hidden="true"></div>
+
+  <!-- Hover strip (appears when collapsed) -->
+  <div id="sidebar-hover" style="display:none;">
+  </div>
+  <div id="sidebar-flyout"></div>
+
   <section>
     {% block content %}{% endblock %}
   </section>
 </main>
+  <!-- Narrow rail visible only when collapsed -->
+  <div id="sidebar-rail" title="Open MIBs panel">▶️</div>
 
 <script>
-// ---- make helpers & actions GLOBAL (needed for inline handlers) ----
+// ---- helpers (GLOBAL) ----
 window.escHtml = function(s){
   return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 };
 window.escAttr = function(s){ return window.escHtml(String(s ?? '')); };
 
-window.highlight = function(term, rootId){
-  const el = document.getElementById(rootId || 'content');
-  if(!el || !term) return;
-  const rx = new RegExp(`(${term.replace(/[.*+?^${}()|[\\]\\\\]/g,'\\\\$&')})`,'gi');
-  el.querySelectorAll('.card, summary, .kv, .small').forEach(node=>{
-    if(node.childElementCount === 0){
-      node.innerHTML = node.textContent.replace(rx,'<mark>$1</mark>');
+window.highlight = function (term, rootId) {
+  const root = document.getElementById(rootId || 'content');
+  if (!root || !term) return;
+
+  // 1) Remove previous highlights (unwrap <mark> nodes)
+  (function clearMarks(node){
+    const marks = node.querySelectorAll('mark');
+    marks.forEach(m => {
+      const parent = m.parentNode;
+      while (m.firstChild) parent.insertBefore(m.firstChild, m);
+      parent.removeChild(m);
+      parent.normalize(); // merge adjacent text nodes
+    });
+  })(root);
+
+  // 2) Walk text nodes and wrap matches with <mark> (case-insensitive)
+  const needle = term.toLowerCase();
+  if (!needle) return;
+
+  const walker = document.createTreeWalker(
+    root,
+    NodeFilter.SHOW_TEXT,
+    {
+      acceptNode: (n) => {
+        // skip empty/whitespace, and skip inside SCRIPT/STYLE
+        if (!n.nodeValue || !n.nodeValue.trim()) return NodeFilter.FILTER_REJECT;
+        const p = n.parentNode && n.parentNode.nodeName;
+        if (p === 'SCRIPT' || p === 'STYLE') return NodeFilter.FILTER_REJECT;
+        return NodeFilter.FILTER_ACCEPT;
+      }
     }
+  );
+
+  const toProcess = [];
+  while (walker.nextNode()) {
+    const tn = walker.currentNode;
+    // Only consider nodes that contain the term (case-insensitive)
+    if (tn.nodeValue.toLowerCase().includes(needle)) toProcess.push(tn);
+  }
+
+  toProcess.forEach(tn => {
+    let text = tn.nodeValue;
+    let idx = 0;
+    const frag = document.createDocumentFragment();
+
+    while (true) {
+      const hay = text.toLowerCase();
+      const hit = hay.indexOf(needle, idx);
+      if (hit === -1) {
+        // append the rest
+        frag.appendChild(document.createTextNode(text.slice(idx)));
+        break;
+      }
+      // pre-hit text
+      if (hit > idx) frag.appendChild(document.createTextNode(text.slice(idx, hit)));
+      // matched piece
+      const mark = document.createElement('mark');
+      mark.textContent = text.slice(hit, hit + needle.length);
+      frag.appendChild(mark);
+      idx = hit + needle.length;
+    }
+
+    tn.parentNode.replaceChild(frag, tn);
   });
 };
 
@@ -190,27 +374,25 @@ window.setInspector = function({name='', oid='', sym_oid='', klass='', syntax=''
   byId('i_name').textContent   = name;
   byId('i_class').textContent  = klass;
   byId('i_syntax').textContent = syntax;
-  byId('i_desc').innerHTML = (desc || '').replace(/\\n/g,'<br>');
-  let crumbTxt = oid;
-  if (sym_oid && sym_oid !== oid) {
-    crumbTxt += " (" + sym_oid + ")";
-  }
-  byId('crumb').textContent = crumbTxt;
-  let oidText = oid;
-  if (sym_oid && sym_oid !== oid) {
-    oidText += " (" + sym_oid + ")";
-  }
-  byId('i_oid').textContent = oidText;
-  byId('i_oid').setAttribute('data-oid', oid);  // numeric only
 
-  // Show numeric + (symbolic) if available
+  // safe newlines
+  byId('i_desc').innerHTML = (desc || '').replace(/\\n/g,'<br>');
+
+  // breadcrumb shows numeric + (symbolic) if available
+  let crumbTxt = oid;
+  if (sym_oid && sym_oid !== oid) crumbTxt += " (" + sym_oid + ")";
+  byId('crumb').textContent = crumbTxt;
+
+  // OID line shows numeric + (symbolic) visually but keeps numeric in data-oid for copying
   const oidEl = byId('i_oid');
+  oidEl.setAttribute('data-oid', oid || '');
   if (sym_oid && sym_oid !== oid) {
     oidEl.innerHTML = `${window.escHtml(oid)} <span class="muted">(${window.escHtml(sym_oid)})</span>`;
   } else {
     oidEl.textContent = oid;
   }
-  // Render enum/bitfield table
+
+  // Enum/bitfield table
   let et = '';
   if (enums && enums.length){
     let rows = enums.map(([k,v]) => `<tr><td>${window.escHtml(k)}</td><td>${window.escHtml(v)}</td></tr>`).join('');
@@ -248,8 +430,8 @@ window.inspectSearchResult = function(card){
   window.setInspector({
     name:   d.name   || '',
     oid:    d.oid    || '',
-    sym_oid:d.symoid || '',
-    klass:  d.class  || '',
+    sym_oid:d.symOid || '',
+    klass:  d.klass  || '',
     syntax: d.syntax || '',
     desc:   d.desc   || '',
     path:   d.path   || '',
@@ -281,7 +463,6 @@ window.doSearch = async function(e){
            data-name="${window.escAttr(n.name || '(unnamed)')}"
            data-oid="${window.escAttr(n.oid || '')}"
            data-sym-oid="${window.escAttr(n.sym_oid || '')}"
-           data-symoid="${window.escAttr(n.sym_oid || '')}"
            data-klass="${window.escAttr(n.klass || '')}"
            data-syntax="${window.escAttr(n.syntax || '')}"
            data-desc="${window.escAttr(n.description || '')}"
@@ -294,7 +475,7 @@ window.doSearch = async function(e){
         </div>
         <div class="kv small">
           <div>Module</div><div>${n.module}</div>
-          <div>OID</div><div>${n.oid || ''} ${n.sym_oid && n.sym_oid !== n.oid ? `<span class="muted">(${window.escHtml(n.sym_oid)})</span>` : ''}</div>
+          <div>OID</div><div>${n.oid || ''}${(n.sym_oid && n.sym_oid !== n.oid) ? ' <span class="muted">(' + window.escHtml(n.sym_oid) + ')</span>' : ''}</div>
         </div>
         <div class="small muted">${(n.description || '').replace(/\\n/g,'<br>')}</div>
       </div>
@@ -357,19 +538,20 @@ window.toggleInspectorPin = function(btn){
 
 window.selectNode = function(ev, summaryEl){
   const det = summaryEl.closest('details'); if(!det) return;
+  const d = det.dataset;
   window.setInspector({
-    name:  d.name,
-    oid:   d.oid,
-    sym_oid: d.symOid || d.sym_oid || '',
-    klass: d.klass,
-    syntax:d.syntax,
-    desc:  d.desc,
-    path:  d.path,
-    enums: d.enums ? JSON.parse(d.enums) : []
+    name:   d.name   || '',
+    oid:    d.oid    || '',
+    sym_oid:d.symoid || d.symOid || '',
+    klass:  d.class  || '',
+    syntax: d.syntax || '',
+    desc:   d.desc   || '',
+    path:   d.path   || '',
+    enums:  d.enums ? JSON.parse(d.enums) : []
   });
 };
 
-/* Compact/Verbose + Theme + Font size (persisted) */
+/* Compact/Verbose  */
 function applyCompactFromStorage(){
   const stored = localStorage.getItem('compact') === '1';
   document.body.classList.toggle('compact', stored);
@@ -383,24 +565,88 @@ window.toggleCompact = function(){
   const btn = document.getElementById('compactBtn');
   if(btn) btn.setAttribute('data-mode', nowCompact ? 'compact' : 'verbose');
 };
-window.toggleTheme = function(){
-  const root = document.documentElement;
-  const toDark = !root.classList.contains('dark');
-  root.classList.toggle('dark', toDark);
-  localStorage.setItem('theme', toDark ? 'dark' : 'light');
-};
+
 window.addEventListener('DOMContentLoaded', ()=>{
-  const theme = localStorage.getItem('theme');
-  if(theme === 'light'){
-    document.documentElement.classList.remove('dark');
-  } else {
-    document.documentElement.classList.add('dark'); // default
+  const rail = document.getElementById('sidebar-rail');
+  if (rail) {
+    rail.addEventListener('click', ()=>{
+      document.body.classList.remove('sidebar-collapsed');
+
+    });
   }
-  const fs = localStorage.getItem('fontsize');
-  if(fs){ document.body.style.setProperty('--base-font', fs + 'px'); }
-  applyCompactFromStorage();
+
+  const collapseBtn = document.querySelector('.collapse-btn');
+  if (collapseBtn) {
+    collapseBtn.addEventListener('click', ()=>{
+      document.body.classList.add('sidebar-collapsed');
+    });
+  }
+
+  // restore last state (default = open)
+  const state = localStorage.getItem('sidebar');
+  if (state === 'collapsed') {
+    document.body.classList.add('sidebar-collapsed');
+  } else {
+    document.body.classList.remove('sidebar-collapsed');
+  }
+
   console.log('[MIB Browser] client script loaded');
 });
+
+// --- Sidebar collapse/expand logic ---
+window.collapseSidebar = function(){
+  const aside  = document.getElementById('sidebar');
+  const rail   = document.getElementById('sidebar-rail');
+  const flyout = document.getElementById('sidebar-flyout');
+
+  // Switch layout
+  document.body.classList.add('sidebar-collapsed');
+
+  // Fill flyout with a copy of the sidebar content + an Expand button
+  // NOTE: We take innerHTML (safe; same-origin content).
+  const inner = aside.innerHTML;
+
+};
+
+window.expandSidebar = function(){
+  const rail   = document.getElementById('sidebar-rail');
+  const flyout = document.getElementById('sidebar-flyout');
+
+  document.body.classList.remove('sidebar-collapsed');
+  flyout.classList.remove('open');
+  flyout.innerHTML = ''; // clear (optional)
+};
+
+// Hover/intent to open flyout when collapsed
+(function initSidebarHover(){
+  const rail   = document.getElementById('sidebar-rail');
+  const flyout = document.getElementById('sidebar-flyout');
+  if(!rail || !flyout) return;
+
+  let hoverTimer = null;
+
+  rail.addEventListener('mouseenter', ()=>{
+    if (!document.body.classList.contains('sidebar-collapsed')) return;
+    // small delay to avoid accidental flicker
+    hoverTimer = setTimeout(()=> { flyout.classList.add('open'); }, 120);
+  });
+  rail.addEventListener('mouseleave', ()=>{
+    if(hoverTimer){ clearTimeout(hoverTimer); hoverTimer = null; }
+  });
+
+  // Close if the mouse leaves the flyout
+  flyout.addEventListener('mouseleave', ()=>{
+    flyout.classList.remove('open');
+  });
+
+  // Also close on Escape
+  document.addEventListener('keydown', (e)=>{
+    if(e.key === 'Escape'){
+      flyout.classList.remove('open');
+    }
+  });
+})();
+
 </script>
 </body>
 </html>
@@ -426,6 +672,49 @@ MODULE_HTML = """
   <div id="content" style="display:grid; grid-template-columns: 2fr 1fr; gap:16px;">
     <div id="maincol">
       <h2>{{ module }}</h2>
+
+      {% if imports or module_identity %}
+      <details class="card" open>
+        <summary><strong>Imports &amp; Module Identity</strong></summary>
+
+        {% if imports %}
+          <h4 style="margin:8px 0 4px;">Imports</h4>
+          <div class="small">
+            {% for mod, syms in imports.items() %}
+              <div style="margin:4px 0;">
+                <strong>{{ mod }}</strong>
+                <div class="muted">
+                  {{ syms|join(', ') }}
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+
+        {% if module_identity %}
+          <h4 style="margin:12px 0 4px;">Module Identity: {{ module_identity.name }}</h4>
+          <div class="kv small">
+            <div>LAST-UPDATED</div>
+            <div>{{ module_identity.last_updated }}</div>
+
+            <div>ORGANIZATION</div>
+            <div style="white-space:pre-wrap;">{{ module_identity.organization }}</div>
+
+            <div>CONTACT-INFO</div>
+            <div style="white-space:pre-wrap;">{{ module_identity.contact_info }}</div>
+
+            <div>DESCRIPTION</div>
+            <div style="white-space:pre-wrap;">{{ module_identity.description }}</div>
+
+            {% if module_identity.revisions %}
+            <div>REVISIONS</div>
+            <div>{{ module_identity.revisions | join(', ') }}</div>
+            {% endif %}
+          </div>
+        {% endif %}
+      </details>
+      {% endif %}
+
       {% if not nodes %}
         <p class="muted">No nodes found in this module.</p>
       {% else %}
@@ -443,14 +732,13 @@ MODULE_HTML = """
         <div class="breadcrumb" id="crumb"></div>
         <div class="kv small">
           <div>Name</div><div id="i_name" class="mono"></div>
-          <div>OID</div><div id="i_oid" class="mono"></div>
-          
+          <div>OID</div><div id="i_oid" class="mono" data-oid=""></div>
           <div>Class</div><div id="i_class"></div>
           <div>Syntax</div><div id="i_syntax"></div>
           <div>Module</div><div id="i_module">{{ module }}</div>
         </div>
         <div class="small muted" id="i_desc" style="margin-top:8px;"></div>
-        <!-- NEW: enum/bitfield pretty table -->
+        <!-- enum/bitfield pretty table -->
         <div id="i_enum" style="margin-top:8px;"></div>
 
         <div style="margin-top:8px;">
@@ -498,7 +786,7 @@ def _purge_dir(d: Path):
 # Start clean uploads (auto-discovery is separate)
 _purge_dir(UPLOAD_DIR)
 
-# { moduleName: {"doc": {"moduleName":..., "nodes": {...}}, "raw": <text>} }
+# { moduleName: {"doc": {"moduleName":..., "nodes": {...}, "meta": {...}}, "raw": <text>} }
 COMPILED: Dict[str, Dict[str, Any]] = {}
 # Map moduleName -> display path (relative to BASE_DIR or "Uploads/<file>")
 MOD_TO_PATH: Dict[str, str] = {}
@@ -507,19 +795,19 @@ MOD_TO_PATH: Dict[str, str] = {}
 # Parser (best-effort SMIv2)
 # ==========================
 BASE_OIDS: Dict[str, str] = {
-    # Top-level arcs
+    # Top-level
     "ccitt": "0",
     "iso": "1",
     "joint-iso-ccitt": "2",
 
-    # Under iso(1)
+    # Under iso(1).org(3)
     "org": "1.3",
 
     # Under iso.org(3).dod(6)
     "dod": "1.3.6",
     "internet": "1.3.6.1",
 
-    # Standard subtrees under internet
+    # Standard subtrees
     "directory": "1.3.6.1.1",
     "mgmt": "1.3.6.1.2",
     "mib-2": "1.3.6.1.2.1",
@@ -527,22 +815,110 @@ BASE_OIDS: Dict[str, str] = {
     "private": "1.3.6.1.4",
     "enterprises": "1.3.6.1.4.1",
 
-    # SNMPv2-specific
+    # SNMPv2
     "security": "1.3.6.1.5",
     "snmpV2": "1.3.6.1.6",
     "snmpDomains": "1.3.6.1.6.1",
     "snmpProxys": "1.3.6.1.6.2",
-    "snmpModules": "1.3.6.1.6.3",   # very common in IMPORTS
+    "snmpModules": "1.3.6.1.6.3",
 }
 
-
-RE_HEADER       = re.compile(r"^\s*([A-Za-z][A-Za-z0-9\-._]*)\s+DEFINITIONS\s*::=\s*BEGIN", re.M)
+RE_HEADER = re.compile(r"^\s*([A-Za-z][A-Za-z0-9\-._]*)\s+DEFINITIONS\s*::=\s*BEGIN", re.M)
 RE_LINE_COMMENT = re.compile(r"--[^\n]*")
-RE_QUOTED       = re.compile(r'"([^"]*)"')
-RE_OID_ASSIGN   = re.compile(r"(?m)^\s*(?P<name>[A-Za-z][\w\-]*)\s+OBJECT\s+IDENTIFIER\s*::=\s*\{(?P<body>[^}]*)\}")
-RE_OBJTYPE      = re.compile(r"(?ms)^\s*(?P<name>[A-Za-z][\w\-]*)\s+OBJECT-TYPE\s+(?P<body>.*?)::=\s*\{(?P<parent>[^}]*)\}")
-RE_OBJIDENTITY  = re.compile(r"(?ms)^\s*(?P<name>[A-Za-z][\w\-]*)\s+OBJECT-IDENTITY\s+(?P<body>.*?)::=\s*\{(?P<parent>[^}]*)\}")
+RE_QUOTED = re.compile(r'"([^"]*)"')
+RE_OID_ASSIGN = re.compile(r"(?m)^\s*(?P<name>[A-Za-z][\w\-]*)\s+OBJECT\s+IDENTIFIER\s*::=\s*\{(?P<body>[^}]*)\}")
+RE_OBJTYPE = re.compile(r"(?ms)^\s*(?P<name>[A-Za-z][\w\-]*)\s+OBJECT-TYPE\s+(?P<body>.*?)::=\s*\{(?P<parent>[^}]*)\}")
+RE_OBJIDENTITY = re.compile(r"(?ms)^\s*(?P<name>[A-Za-z][\w\-]*)\s+OBJECT-IDENTITY\s+(?P<body>.*?)::=\s*\{(?P<parent>[^}]*)\}")
 RE_NOTIFICATION = re.compile(r"(?ms)^\s*(?P<name>[A-Za-z][\w\-]*)\s+NOTIFICATION-TYPE\s+(?P<body>.*?)::=\s*\{(?P<parent>[^}]*)\}")
+
+# NEW: imports + module-identity
+RE_IMPORTS = re.compile(r"(?ms)IMPORTS\s+(.*?)\s*;", re.S)
+RE_MODULE_IDENTITY = re.compile(r"(?ms)([A-Za-z][\w\-]*)\s+MODULE-IDENTITY\s+(.*?)::=\s*\{[^}]*\}")
+
+RE_IMPORTS_BLOCK = re.compile(r"\bIMPORTS\b(.*?);", re.S)
+RE_MODULE_IDENTITY = re.compile(
+    r"(?ms)^\s*(?P<name>[A-Za-z][\w\-]*)\s+MODULE-IDENTITY\s+(?P<body>.*?)::=\s*\{(?P<parent>[^\}]*)\}"
+)
+
+def parse_imports_block(src: str) -> Dict[str, List[str]]:
+    """
+    Parse the IMPORTS section into a dict: { from_module: [symbols...] }.
+    """
+    m = RE_IMPORTS_BLOCK.search(src)
+    if not m:
+        return {}
+    block = m.group(1)
+
+    # Normalize whitespace and newlines (keep readable downstream)
+    text = " ".join(line.strip() for line in block.splitlines())
+
+    # Split into chunks like "sym1, sym2 FROM MOD"
+    # We walk left-to-right capturing "(symbols) FROM (module)"
+    out: Dict[str, List[str]] = {}
+    # Use a loop to find each FROM segment and the preceding symbols
+    pos = 0
+    while True:
+        fm = re.search(r"\bFROM\s+([A-Za-z][\w\-]*)", text[pos:])
+        if not fm:
+            break
+        mod = fm.group(1)
+        start = pos
+        end = pos + fm.start()
+        syms_chunk = text[start:end].strip().strip(",")
+        # Split syms by commas
+        syms = [s.strip() for s in syms_chunk.split(",") if s.strip()]
+        out.setdefault(mod, [])
+        out[mod].extend(syms)
+        pos = pos + fm.end()
+    # Clean symbol names (strip trailing comments/garbage)
+    for k, v in out.items():
+        cleaned = []
+        for s in v:
+            # keep only identifier-like tokens
+            m_id = re.match(r"^[A-Za-z][A-Za-z0-9\-]*$", s)
+            if m_id:
+                cleaned.append(m_id.group(0))
+        out[k] = cleaned
+    return out
+
+def _extract_first_quoted(body: str, key: str) -> str:
+    m = re.search(rf"\b{key}\b\s+\"(.*?)\"", body, re.S)
+    return (m.group(1) if m else "").strip()
+
+def parse_module_identity(src: str) -> Optional[Dict[str, Any]]:
+    """
+    Return a structured dict for MODULE-IDENTITY or None:
+    {
+      "name": str,
+      "last_updated": str,
+      "organization": str,
+      "contact_info": str,
+      "description": str,
+      "revisions": ["YYYYMMDDHHMMZ", ...]  # in order of appearance
+    }
+    """
+    m = RE_MODULE_IDENTITY.search(src)
+    if not m:
+        return None
+    name = m.group("name")
+    body = m.group("body")
+
+    last_updated = _extract_first_quoted(body, "LAST-UPDATED")
+    organization = _extract_first_quoted(body, "ORGANIZATION")
+    contact_info = _extract_first_quoted(body, "CONTACT-INFO")
+    description  = _extract_first_quoted(body, "DESCRIPTION")
+
+    # Collect all REVISION "..." occurrences in order
+    revisions = [s.strip() for s in re.findall(r'\bREVISION\s+"(.*?)"', body, re.S)]
+
+    return {
+        "name": name,
+        "last_updated": last_updated,
+        "organization": organization,
+        "contact_info": contact_info,
+        "description": description,
+        "revisions": revisions,
+    }
 
 def strip_comments(text: str) -> str:
     out, last = [], 0
@@ -637,6 +1013,35 @@ def parse_mib_text(text: str) -> Dict[str, Any]:
     src = strip_comments(text)
     module = find_module_name(src) or "(unknown-module)"
 
+    # ---- META: IMPORTS + MODULE-IDENTITY ----
+    meta: Dict[str, Any] = {"imports_text": "", "identity": {}}
+
+    mi = RE_IMPORTS.search(src)
+    if mi:
+        # keep the cleaned IMPORTS block for display
+        imports_block = mi.group(1).strip()
+        # compact whitespace for nicer rendering
+        imports_block = re.sub(r"\s+\n", "\n", imports_block)
+        meta["imports_text"] = imports_block
+
+    im = RE_MODULE_IDENTITY.search(src)
+    if im:
+        ident_name, ident_body = im.group(1), im.group(2)
+        lastupd = _extract_field(ident_body, "LAST-UPDATED")
+        org      = _extract_field(ident_body, "ORGANIZATION")
+        contact  = _extract_field(ident_body, "CONTACT-INFO")
+        desc     = _extract_field(ident_body, "DESCRIPTION")
+        revs     = re.findall(r'REVISION\s+"([^"]+)"', ident_body)
+        meta["identity"] = {
+            "name": ident_name,
+            "last_updated": lastupd,
+            "organization": org,
+            "contact": contact,
+            "description": desc,
+            "revisions": revs,
+        }
+
+    # ---- Nodes ----
     sym2oid: Dict[str, str] = {}
     for m in RE_OID_ASSIGN.finditer(src):
         name = m.group("name"); body = m.group("body")
@@ -645,28 +1050,22 @@ def parse_mib_text(text: str) -> Dict[str, Any]:
 
     nodes: Dict[str, Dict[str, Any]] = {}
     def add_node(name: str, parent_body: str, klass: str, syntax: str, description: str):
-        # numeric OID (if resolvable)
         oid = _resolve_braced_oid(parent_body, sym2oid)
 
-        # pretty symbolic display (e.g. "sysOREntry 4" -> "sysOREntry.4")
-        sym_disp = re.sub(r"\s+", " ", (parent_body or "").strip())
-        sym_disp = sym_disp.replace(","," ").strip()
+        # symbolic display like "sysOREntry 4" -> "sysOREntry.4"
+        sym_disp = re.sub(r"\s+", " ", (parent_body or "").strip()).replace(","," ").strip()
         sym_oid = ".".join([t for t in sym_disp.split(" ") if t])
 
         enums = _extract_enums_from_syntax(syntax)
         nodes[name] = {
             "name": name,
-            "oid": oid,                        # numeric if resolvable (or mixed if not)
-            "sym_oid": sym_oid,                # symbolic display (e.g. sysOREntry.4)
+            "oid": oid,
+            "sym_oid": sym_oid,
             "klass": klass,
             "syntax": syntax,
             "description": description.strip(),
             "enums": enums
         }
-    
-
-        # IMPORTANT: also expose this symbol for later resolutions
-        # so children like { sysOREntry 4 } can resolve numerically.
         if oid and re.fullmatch(r"\d+(?:\.\d+)+", oid):
             sym2oid[name] = oid
 
@@ -691,31 +1090,39 @@ def parse_mib_text(text: str) -> Dict[str, Any]:
           name,
           {"name": name, "oid": oid, "sym_oid": "", "klass": "OBJECT IDENTIFIER", "syntax": "", "description": "", "enums": []}
       )
-    return {"moduleName": module, "nodes": nodes}
+
+    # Also include bare OBJECT IDENTIFIER assignments as plain nodes
+    for name, oid in sym2oid.items():
+        nodes.setdefault(
+            name,
+            {
+                "name": name, "oid": oid, "sym_oid": "", "klass": "OBJECT IDENTIFIER",
+                "syntax": "", "description": "", "enums": []
+            }
+        )
+
+    # NEW: parse IMPORTS and MODULE-IDENTITY (pretty/structured)
+    imports_dict = parse_imports_block(src) or {}
+    module_ident = parse_module_identity(src)
+
+    return {
+        "moduleName": module,
+        "nodes": nodes,
+        "imports": imports_dict,
+        "moduleIdentity": module_ident,
+         "meta": meta
+    }
 
 # ==========================
 # Folder tree (for sidebar)
 # ==========================
 def _insert_to_tree(tree: dict, parts: List[str], module_name: str, relfile: str):
-    """Insert a module into folder tree by its relative path parts."""
     cur = tree
     for d in parts:
         cur = cur.setdefault("_dirs", {}).setdefault(d, {})
     cur.setdefault("_mods", []).append((module_name, relfile))
 
 def build_sidebar_tree(mod_to_path: Dict[str, str]) -> dict:
-    """
-    Build a nested dict:
-    {
-      "_dirs": {
-        "Sub": {
-          "_mods": [(module, relfile), ...],
-          "_dirs": { ... }
-        }
-      },
-      "_mods": [...]
-    }
-    """
     tree: dict = {}
     for mod, rel in sorted(mod_to_path.items(), key=lambda kv: kv[1].lower()):
         rel_path = Path(rel)
@@ -724,7 +1131,6 @@ def build_sidebar_tree(mod_to_path: Dict[str, str]) -> dict:
     return tree
 
 def render_sidebar_html(tree: dict, prefix: str = "") -> str:
-    """Render the sidebar folder tree as nested <details> blocks."""
     def _dir_block(name: str, node: dict) -> str:
         subdirs = node.get("_dirs", {})
         mods = node.get("_mods", [])
@@ -746,7 +1152,6 @@ def render_sidebar_html(tree: dict, prefix: str = "") -> str:
         opened = " open" if prefix == "" else ""
         safe_name = html.escape(name)
         return f"""<details{opened}><summary><strong>{safe_name}</strong></summary>{inner}</details>"""
-    # Root level: show top dirs; also gather root-level modules
     html_out = ""
     root_mods = tree.get("_mods", [])
     for mod, relfile in sorted(root_mods, key=lambda x: x[0].lower()):
@@ -836,7 +1241,7 @@ def render_tree(tree: Dict[str, Any]) -> str:
             return f"""
 <details data-path="{_html.escape(path or label, quote=True)}">
   <summary class="node" onclick="selectNode(event,this)">
-    <span class="tw">▶</span>
+    <span class="tw">▶️</span>
     <strong>{_html.escape(title)}</strong>
     <span class="badge">branch</span>
   </summary>
@@ -845,20 +1250,20 @@ def render_tree(tree: Dict[str, Any]) -> str:
 """
 
         data_name  = _html.escape(title, quote=True)
-        data_class = _html.escape(klass or "", quote=True)
+        data_klass = _html.escape(klass or "", quote=True)
         data_syn   = _html.escape(syntax or "", quote=True)
         data_desc  = _html.escape(desc or "", quote=True)
         data_oid   = _html.escape(oid or "", quote=True)
         data_path  = _html.escape(path or label, quote=True)
         data_enums = _html.escape(json.dumps(enums), quote=True)
-        data_sym = _html.escape(sym_oid or "", quote=True)
+        data_sym   = _html.escape(sym_oid or "", quote=True)
 
         desc_html = f"<div class='small muted'>{_html.escape(desc).replace('\\n','<br>')}</div>" if desc else ""
 
         return f"""
-<details data-oid="{data_oid}" data-symoid="{data_sym}" data-name="{data_name}" data-class="{data_class}" data-syntax="{data_syn}" data-desc="{data_desc}" data-path="{data_path}" data-enums="{data_enums}">  
+<details data-oid="{data_oid}" data-sym-oid="{data_sym}" data-name="{data_name}" data-klass="{data_klass}" data-syntax="{data_syn}" data-desc="{data_desc}" data-path="{data_path}" data-enums="{data_enums}">
   <summary class="node" onclick="selectNode(event,this)">
-    <span class="tw">▶</span>
+    <span class="tw">▶️</span>
     {_icon(klass)}
     <strong>{_html.escape(title)}</strong>
     {_badge(klass)}
@@ -871,11 +1276,7 @@ def render_tree(tree: Dict[str, Any]) -> str:
   <div class="card small" onclick="selectNode(event,this)">
     <div class="kv">
       <div>OID</div>
-      <div id="i_oid" class="mono" data-oid=""></div>
-      <div>
-        {_html.escape(oid)}
-        {f' <span class="muted">({_html.escape(sym_oid)})</span>' if sym_oid and sym_oid != oid else ''}
-      </div>
+      <div>{_html.escape(oid)}{(' <span class=\"muted\">(' + _html.escape(sym_oid) + ')</span>') if (sym_oid and sym_oid != oid) else ''}</div>
       <div>Class</div><div>{_html.escape(klass)}</div>
       <div>Syntax</div><div>{_html.escape(syntax)}</div>
     </div>
@@ -899,7 +1300,7 @@ def flatten_nodes(mod_name: str, doc: Dict[str, Any]) -> List[Dict[str, Any]]:
           "module": mod_name,
           "name": val.get("name") or key,
           "oid": val.get("oid"),
-          "sym_oid": val.get("sym_oid") or "",   # NEW
+          "sym_oid": val.get("sym_oid") or "",
           "klass": val.get("klass"),
           "syntax": val.get("syntax") or "",
           "description": (val.get("description") or "").strip(),
@@ -919,11 +1320,9 @@ def flatten_nodes(mod_name: str, doc: Dict[str, Any]) -> List[Dict[str, Any]]:
 # Discovery + Parse & Store
 # ==========================
 def discover_mib_files() -> List[Path]:
-    """Find all *.mib under BASE_DIR (excluding UPLOAD_DIR)"""
     files: List[Path] = []
     for p in BASE_DIR.rglob("*.mib"):
         try:
-            # Skip anything under the temp upload dir (just in case)
             if str(p).startswith(str(UPLOAD_DIR)):
                 continue
             files.append(p)
@@ -932,14 +1331,9 @@ def discover_mib_files() -> List[Path]:
     return files
 
 def parse_sources() -> List[str]:
-    """
-    Parse auto-discovered *.mib under BASE_DIR and all files in UPLOAD_DIR.
-    Build COMPILED and MOD_TO_PATH accordingly.
-    """
     COMPILED.clear()
     MOD_TO_PATH.clear()
 
-    # Auto-discovered
     discovered = discover_mib_files()
     for p in discovered:
         try:
@@ -952,7 +1346,6 @@ def parse_sources() -> List[str]:
         rel = str(p.relative_to(BASE_DIR))
         MOD_TO_PATH[mod] = rel
 
-    # Uploaded
     for p in UPLOAD_DIR.iterdir():
         if not p.is_file():
             continue
@@ -970,18 +1363,13 @@ def parse_sources() -> List[str]:
     return mods
 
 def build_modlist_html() -> str:
-    """Generate sidebar HTML with folder structure."""
     tree = build_sidebar_tree(MOD_TO_PATH)
-    # Also add an "Uploads" virtual folder if any uploads exist
     uploads: List[Tuple[str,str]] = [(m, rel) for m, rel in MOD_TO_PATH.items() if rel.startswith("Uploads/")]
     html_parts: List[str] = []
-    # Render main tree (auto-discovered)
     main_tree_html = render_sidebar_html(tree)
     if main_tree_html.strip():
         html_parts.append(main_tree_html)
-    # Render uploads
     if uploads:
-        # Build a small sub-tree for uploads
         up_tree: dict = {"_mods": [], "_dirs": {}}
         for m, rel in uploads:
             _insert_to_tree(up_tree, ["Uploads"], m, rel)
@@ -1000,7 +1388,7 @@ def search_all(term: str) -> List[Dict[str, Any]]:
             hay = " ".join([
               n.get("module",""), n.get("name",""),
               str(n.get("oid","") or ""),
-              n.get("sym_oid","") or "",       # NEW
+              n.get("sym_oid","") or "",
               n.get("klass","") or "",
               n.get("syntax","") or "",
               n.get("description","") or ""
@@ -1030,13 +1418,16 @@ def module_view(module: str):
     nodes = flatten_nodes(module, entry["doc"])
     tree = build_tree(nodes)
     tree_html = render_tree(tree)
+    # NEW: pass meta
     return render_template_string(
         app.jinja_loader.get_source(app.jinja_env, "module.html")[0],
         module=module,
         nodes=nodes,
         tree_html=tree_html,
         modules=sorted(COMPILED.keys()),
-        modlist_html=build_modlist_html()
+        modlist_html=build_modlist_html(),
+        imports=entry["doc"].get("imports", {}),
+        module_identity=entry["doc"].get("moduleIdentity")
     )
 
 @app.route("/upload", methods=["POST"])
@@ -1054,9 +1445,13 @@ def upload():
 @app.route("/clear", methods=["POST"])
 def clear_all():
     _purge_dir(UPLOAD_DIR)
-    # Reparse auto-discovered files (keep them), clear uploads
     parse_sources()
-    return redirect(url_for("index"))
+    return """
+    <script>
+      localStorage.clear();
+      window.location = "/";
+    </script>
+    """
 
 @app.route("/api/search")
 def api_search():
@@ -1069,6 +1464,5 @@ def api_search():
 # Main
 # ==========================
 if __name__ == "__main__":
-    # Parse on startup (auto + current uploads, if any)
     parse_sources()
     app.run(host="0.0.0.0", port=8000, debug=True)
