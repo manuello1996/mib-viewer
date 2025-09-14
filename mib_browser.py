@@ -25,7 +25,7 @@ app = Flask(__name__)
 # ==========================
 # Templates / Styles / JS
 # ==========================
-BASE_HTML = """
+BASE_HTML = r"""
 <!doctype html>
 <html class="dark">
 <head>
@@ -234,6 +234,8 @@ BASE_HTML = """
     font-size: 25px;
     cursor: pointer;
     }
+
+    .icon-btn { padding: 1px 6px; line-height: 1.2; }
 
   </style>
 </head>
@@ -477,12 +479,32 @@ window.doSearch = async function(e){
           <div>Module</div><div>${n.module}</div>
           <div>OID</div><div>${n.oid || ''}${(n.sym_oid && n.sym_oid !== n.oid) ? ' <span class="muted">(' + window.escHtml(n.sym_oid) + ')</span>' : ''}</div>
         </div>
-        <div class="small muted">${(n.description || '').replace(/\\n/g,'<br>')}</div>
+        </style
+        <div style="margin-top:6px;">
+          ${
+            n.oid
+              ? `<button class="btn small" type="button"
+                        onclick="goToInTree('${window.escAttr(n.module)}','${window.escAttr(n.oid)}')">
+                    Go to in tree
+                </button>`
+              : `<span class="muted small">(no OID – can’t jump)</span>`
+          }
+        </div>
+
       </div>
     `).join('');
   }
   container.innerHTML = html;
   window.highlight(q, container.id);
+};
+
+window.goToInTree = function(mod, oid){
+  if(!mod) return;
+  let url = `/module/${encodeURIComponent(mod)}`;
+  if(oid && /^\d+(?:\.\d+)+$/.test(oid)) {
+    url += `#${encodeURIComponent(oid)}`;
+  }
+  window.location = url;
 };
 
 // Misc UI
@@ -647,12 +669,70 @@ window.expandSidebar = function(){
   });
 })();
 
+window.copyLink = function(oid){
+  if(!oid) return;
+  const base = location.href.split('#')[0];
+  const url = `${base}#${encodeURIComponent(oid)}`;
+  window.copyText(url);
+};
+
+function openParents(detailsEl){
+  // open this branch and all ancestors
+  let d = detailsEl;
+  while(d && d.tagName === 'DETAILS'){
+    d.open = true;
+    d = d.parentElement?.closest('details');
+  }
+}
+
+function selectByOid(oid){
+  if(!oid) return false;
+  const id = 'oid-' + oid;
+  const det = document.getElementById(id) || document.querySelector(`[data-oid="${CSS.escape(oid)}"]`);
+  if(!det) return false;
+  openParents(det);
+  det.scrollIntoView({block:'center', behavior:'smooth'});
+  // also populate inspector from this node
+  const sum = det.querySelector(':scope > summary');
+  if(sum) window.selectNode(null, sum);
+  return true;
+}
+
+// when user clicks a node, reflect in hash (if it has an OID)
+const _origSelectNode = window.selectNode;
+window.selectNode = function(ev, summaryEl){
+  _origSelectNode(ev, summaryEl);
+  const det = summaryEl?.closest('details');
+  const oid = det?.dataset?.oid;
+  if(oid && /^\d+(?:\.\d+)+$/.test(oid)){
+    const newHash = '#' + oid;
+    if(location.hash !== newHash){
+      history.replaceState(null, '', newHash);
+    }
+  }
+};
+
+// on module page load, honor #<numeric OID>
+window.addEventListener('DOMContentLoaded', ()=>{
+  const m = (location.hash || '').match(/^#(\d+(?:\.\d+)+)$/);
+  if(m){
+    // tree may not be rendered yet? (it is, but be safe)
+    setTimeout(()=>{ selectByOid(m[1]); }, 0);
+  }
+});
+
+// also respond to hash changes while staying on the same page
+window.addEventListener('hashchange', ()=>{
+  const m = (location.hash || '').match(/^#(\d+(?:\.\d+)+)$/);
+  if(m) selectByOid(m[1]);
+});
+
 </script>
 </body>
 </html>
 """
 
-HOME_HTML = """
+HOME_HTML = r"""
 {% extends "base.html" %}
 {% block content %}
   <div id="content">
@@ -665,7 +745,7 @@ HOME_HTML = """
 {% endblock %}
 """
 
-MODULE_HTML = """
+MODULE_HTML = r"""
 {% extends "base.html" %}
 {% block content %}
   <!-- On module pages, #content becomes a 2-col grid: left main column + right inspector -->
@@ -682,7 +762,13 @@ MODULE_HTML = """
           <div class="small">
             {% for mod, syms in imports.items() %}
               <div style="margin:4px 0;">
-                <strong>{{ mod }}</strong>
+                <strong>
+                  {% if mod in modules %}
+                    <a href="{{ url_for('module_view', module=mod) }}">{{ mod }}</a>
+                  {% else %}
+                    {{ mod }} <i>(modules not loaded)</i>
+                  {% endif %}
+                </strong>
                 <div class="muted">
                   {{ syms|join(', ') }}
                 </div>
@@ -712,6 +798,36 @@ MODULE_HTML = """
             {% endif %}
           </div>
         {% endif %}
+        {% if defines_list %}
+        <h4 style="margin:12px 0 4px;">Defines</h4>
+        <div class="small">
+          <div class="muted">Symbols provided by {{ module }}:</div>
+          <div style="line-height:1.7;">
+            {# show as inline chips #}
+            {% for sym in defines_list %}
+              <span class="badge" style="margin:2px 4px 2px 0;">{{ sym }}</span>
+            {% endfor %}
+          </div>
+        </div>
+      {% endif %}
+
+      {% if used_by %}
+        <h4 style="margin:12px 0 4px;">Used by</h4>
+        <div class="small">
+          {% for importer, syms in used_by.items()|sort %}
+            <div style="margin:6px 0;">
+              {% if importer in modules %}
+                <a href="{{ url_for('module_view', module=importer) }}"><strong>{{ importer }}</strong></a>
+              {% else %}
+                <strong>{{ importer }}</strong>
+              {% endif %}
+              {% if syms %}
+                <div class="muted">{{ syms|sort|join(', ') }}</div>
+              {% endif %}
+            </div>
+          {% endfor %}
+        </div>
+{% endif %}
       </details>
       {% endif %}
 
@@ -746,7 +862,14 @@ MODULE_HTML = """
                   onclick="copyText(document.getElementById('i_oid').dataset.oid)">
             Copy OID
           </button>
-          <button class="btn" type="button" onclick="copyText(document.getElementById('i_name').textContent)">Copy name</button>
+          <button class="btn" type="button"
+                  onclick="copyLink(document.getElementById('i_oid').dataset.oid)">
+            Copy link
+          </button>
+          <button class="btn" type="button"
+                  onclick="copyText(document.getElementById('i_name').textContent)">
+            Copy name
+          </button>
         </div>
         <div style="margin-top:12px;" class="small muted">Expand:
           <button class="icon-btn" type="button" onclick="expandToLevel(1)">L1</button>
@@ -790,6 +913,10 @@ _purge_dir(UPLOAD_DIR)
 COMPILED: Dict[str, Dict[str, Any]] = {}
 # Map moduleName -> display path (relative to BASE_DIR or "Uploads/<file>")
 MOD_TO_PATH: Dict[str, str] = {}
+# Reverse import index: { target_module: { importer_module: [symbols...] } }
+IMPORTED_BY: Dict[str, Dict[str, List[str]]] = {}
+# What symbols each module defines (names we can import): { module: set(names) }
+MODULE_EXPORTS: Dict[str, set] = {}
 
 # ==========================
 # Parser (best-effort SMIv2)
@@ -833,12 +960,17 @@ RE_NOTIFICATION = re.compile(r"(?ms)^\s*(?P<name>[A-Za-z][\w\-]*)\s+NOTIFICATION
 
 # NEW: imports + module-identity
 RE_IMPORTS = re.compile(r"(?ms)IMPORTS\s+(.*?)\s*;", re.S)
-RE_MODULE_IDENTITY = re.compile(r"(?ms)([A-Za-z][\w\-]*)\s+MODULE-IDENTITY\s+(.*?)::=\s*\{[^}]*\}")
 
 RE_IMPORTS_BLOCK = re.compile(r"\bIMPORTS\b(.*?);", re.S)
-RE_MODULE_IDENTITY = re.compile(
-    r"(?ms)^\s*(?P<name>[A-Za-z][\w\-]*)\s+MODULE-IDENTITY\s+(?P<body>.*?)::=\s*\{(?P<parent>[^\}]*)\}"
-)
+RE_MODULE_IDENTITY = re.compile(r"(?ms)^\s*(?P<name>[A-Za-z][\w\-]*)\s+MODULE-IDENTITY\s+(?P<body>.*?)::=\s*\{(?P<parent>[^\}]*)\}")
+RE_TEXTUAL_CONVENTION = re.compile(r"(?ms)^\s*(?P<name>[A-Za-z][\w\-]*)\s*::=\s*TEXTUAL-CONVENTION\s*(?P<body>.*?)(?=^\s*[A-Za-z][\w\-]*\s*::=|\Z)")
+
+# SMIv1/SMIv2 macro blocks
+RE_SEQUENCE = re.compile(r"(?ms)^\s*(?P<name>[A-Za-z][\w\-]*)\s*::=\s*SEQUENCE\s*\{(?P<body>[^}]*)\}")
+RE_OBJECT_GROUP = re.compile(r"(?ms)^\s*(?P<name>[A-Za-z][\w\-]*)\s+OBJECT-GROUP\s+(?P<body>.*?)::=\s*\{(?P<parent>[^}]*)\}")
+RE_MODULE_COMPLIANCE = re.compile(r"(?ms)^\s*(?P<name>[A-Za-z][\w\-]*)\s+MODULE-COMPLIANCE\s+(?P<body>.*?)::=\s*\{(?P<parent>[^}]*)\}")
+RE_AGENT_CAPS = re.compile(r"(?ms)^\s*(?P<name>[A-Za-z][\w\-]*)\s+AGENT-CAPABILITIES\s+(?P<body>.*?)::=\s*\{(?P<parent>[^}]*)\}")
+
 
 def parse_imports_block(src: str) -> Dict[str, List[str]]:
     """
@@ -990,6 +1122,13 @@ def _extract_field(block: str, key: str) -> str:
             return mq.group(1).strip()
     return " ".join(val.split())
 
+def _extract_list_in_braces(body: str, key: str) -> List[str]:
+    m = re.search(rf"\b{key}\b\s*\{{(.*?)\}}", body, re.S)
+    if not m: return []
+    items = [s.strip() for s in m.group(1).split(",") if s.strip()]
+    # only identifiers
+    return [re.match(r"[A-Za-z][\w\-]*", s).group(0) for s in items if re.match(r"[A-Za-z][\w\-]*", s)]
+
 ENUM_SET_RE = re.compile(r"\{([^}]*)\}", re.S)
 
 def _extract_enums_from_syntax(syntax: str) -> List[Tuple[str, str]]:
@@ -1100,10 +1239,101 @@ def parse_mib_text(text: str) -> Dict[str, Any]:
                 "syntax": "", "description": "", "enums": []
             }
         )
+    
+    # --- TEXTUAL-CONVENTIONs (no OIDs) ---
+    for m in RE_TEXTUAL_CONVENTION.finditer(src):
+        name  = m.group("name")
+        body  = m.group("body")
+
+        status = _extract_field(body, "STATUS")
+        disp   = _extract_field(body, "DISPLAY-HINT") or _extract_field(body, "DISPLAY-HINT")  # keep as-is if absent
+        desc   = _extract_field(body, "DESCRIPTION")
+        syntax = _extract_field(body, "SYNTAX")
+
+        # Show display-hint alongside the syntax for visibility
+        syntax_show = syntax if not disp else f'{syntax}  [DISPLAY-HINT "{disp}"]'
+
+        # No parent OID body (these don't live in the OID tree); add as no-oid nodes
+        add_node(
+            name=name,
+            parent_body="",                      # forces "(no-oid)" bucket
+            klass=f"TEXTUAL-CONVENTION{(' ('+status+')' if status else '')}",
+            syntax=syntax_show,
+            description=desc,
+        )
+      # --- SEQUENCE (structure-only, no OID) ---
+    for m in RE_SEQUENCE.finditer(src):
+        name = m.group("name")
+        body = m.group("body").strip()
+        # Show members, one per line
+        members = [ln.strip().rstrip(',') for ln in body.splitlines() if ln.strip()]
+        desc = "\n".join(members)
+        add_node(
+            name=name,
+            parent_body="",
+            klass="SEQUENCE",
+            syntax="SEQUENCE {...}",
+            description=desc
+        )
+
+    # --- OBJECT-GROUP (has parent OID) ---
+    for m in RE_OBJECT_GROUP.finditer(src):
+        name = m.group("name"); body = m.group("body"); parent = m.group("parent")
+        status = _extract_field(body, "STATUS")
+        desc   = _extract_field(body, "DESCRIPTION")
+        objs   = _extract_list_in_braces(body, "OBJECTS")
+        syntax = f"OBJECTS {{ {', '.join(objs)} }}"
+        add_node(
+            name=name,
+            parent_body=parent,
+            klass=f"OBJECT-GROUP{(' ('+status+')' if status else '')}",
+            syntax=syntax,
+            description=desc
+        )
+
+    # --- MODULE-COMPLIANCE (has parent OID) ---
+    for m in RE_MODULE_COMPLIANCE.finditer(src):
+        name = m.group("name"); body = m.group("body"); parent = m.group("parent")
+        status = _extract_field(body, "STATUS")
+        desc   = _extract_field(body, "DESCRIPTION")
+        mand   = _extract_list_in_braces(body, "MANDATORY-GROUPS")
+        # Optional/variation OBJECT clauses are complex; capture their names roughly:
+        opt_groups = _extract_list_in_braces(body, "GROUP")  # catches simple GROUP { x }
+        syntax = "MANDATORY-GROUPS { " + ", ".join(mand) + " }"
+        if opt_groups:
+            syntax += f" ; GROUP {', '.join(opt_groups)}"
+        add_node(
+            name=name,
+            parent_body=parent,
+            klass=f"MODULE-COMPLIANCE{(' ('+status+')' if status else '')}",
+            syntax=syntax,
+            description=desc
+        )
+
+    # --- AGENT-CAPABILITIES (has parent OID) ---
+    for m in RE_AGENT_CAPS.finditer(src):
+        name = m.group("name"); body = m.group("body"); parent = m.group("parent")
+        status = _extract_field(body, "STATUS")
+        desc   = _extract_field(body, "DESCRIPTION")
+        prod   = _extract_field(body, "PRODUCT-RELEASE")
+        supports = [s.strip() for s in re.findall(r"\bSUPPORTS\s+([A-Za-z][\w\-]*)", body)]
+        syntax = "; ".join(filter(None, [
+            f"PRODUCT-RELEASE \"{prod}\"" if prod else "",
+            f"SUPPORTS {', '.join(supports)}" if supports else ""
+        ]))
+        add_node(
+            name=name,
+            parent_body=parent,
+            klass=f"AGENT-CAPABILITIES{(' ('+status+')' if status else '')}",
+            syntax=syntax,
+            description=desc
+        )
 
     # NEW: parse IMPORTS and MODULE-IDENTITY (pretty/structured)
     imports_dict = parse_imports_block(src) or {}
     module_ident = parse_module_identity(src)
+
+
 
     return {
         "moduleName": module,
@@ -1131,40 +1361,51 @@ def build_sidebar_tree(mod_to_path: Dict[str, str]) -> dict:
     return tree
 
 def render_sidebar_html(tree: dict, prefix: str = "") -> str:
+    def module_card(mod: str, relfile: str) -> str:
+        safe_mod = html.escape(mod)
+        safe_rel = html.escape(relfile)
+        is_upload = relfile.startswith("Uploads/")
+        confirm_msg = (
+            f"Remove {mod}? " + ("This will delete the uploaded file." if is_upload else "(session unload)")
+        )
+        # Escape for HTML attribute/JS string
+        confirm_attr = html.escape(confirm_msg, quote=True)
+        return f"""
+<div class="fs-file card small" title="{safe_rel}">
+  <div class="row" style="align-items:center;">
+    <strong>{safe_mod}</strong>
+    <a class="badge" href="{url_for('module_view', module=mod)}">open</a>
+    <form action="{url_for('remove_module', module=mod)}"
+          method="post" style="margin-left:auto;"
+          onsubmit="return confirm('{confirm_attr}')">
+      <button class="icon-btn" title="Remove {safe_mod}" type="submit">✖</button>
+    </form>
+  </div>
+  <div class="small muted">{safe_rel}</div>
+</div>
+"""
+
     def _dir_block(name: str, node: dict) -> str:
         subdirs = node.get("_dirs", {})
         mods = node.get("_mods", [])
         inner = ""
+        # render subdirectories
         for sd_name, sd in sorted(subdirs.items(), key=lambda kv: kv[0].lower()):
             inner += _dir_block(sd_name, sd)
+        # render module cards in this directory
         for mod, relfile in sorted(mods, key=lambda x: x[0].lower()):
-            safe_mod = html.escape(mod)
-            safe_rel = html.escape(relfile)
-            inner += f"""
-<div class="fs-file card small" title="{safe_rel}">
-  <div class="row">
-    <strong>{safe_mod}</strong>
-    <a class="badge" href="{url_for('module_view', module=mod)}">open</a>
-  </div>
-  <div class="small muted">{safe_rel}</div>
-</div>
-"""
+            inner += module_card(mod, relfile)
+
         opened = " open" if prefix == "" else ""
         safe_name = html.escape(name)
         return f"""<details{opened}><summary><strong>{safe_name}</strong></summary>{inner}</details>"""
+
     html_out = ""
+    # modules at the root
     root_mods = tree.get("_mods", [])
     for mod, relfile in sorted(root_mods, key=lambda x: x[0].lower()):
-        safe_mod = html.escape(mod); safe_rel = html.escape(relfile)
-        html_out += f"""
-<div class="fs-file card small" title="{safe_rel}">
-  <div class="row">
-    <strong>{safe_mod}</strong>
-    <a class="badge" href="{url_for('module_view', module=mod)}">open</a>
-  </div>
-  <div class="small muted">{safe_rel}</div>
-</div>
-"""
+        html_out += module_card(mod, relfile)
+    # top-level directories
     for top_name, node in sorted(tree.get("_dirs", {}).items(), key=lambda kv: kv[0].lower()):
         html_out += _dir_block(top_name, node)
     return html_out
@@ -1199,18 +1440,21 @@ def render_tree(tree: Dict[str, Any]) -> str:
             return (1, k.lower())
 
     def _badge(klass: str) -> str:
-        if not klass:
-            return ""
+        if not klass: return ""
         k = klass.upper()
         if "OBJECT-TYPE" in k:       return '<span class="badge type">OBJECT-TYPE</span>'
         if "OBJECT-IDENTITY" in k:   return '<span class="badge ident">OBJECT-IDENTITY</span>'
         if "NOTIFICATION" in k:      return '<span class="badge note">NOTIFICATION</span>'
+        if "TEXTUAL-CONVENTION" in k:return '<span class="badge type">TEXTUAL-CONVENTION</span>'
         if "OBJECT IDENTIFIER" in k: return '<span class="badge">OID</span>'
+        if "OBJECT-GROUP" in k:         return '<span class="badge type">OBJECT-GROUP</span>'
+        if "MODULE-COMPLIANCE" in k:    return '<span class="badge type">MODULE-COMPLIANCE</span>'
+        if "AGENT-CAPABILITIES" in k:   return '<span class="badge type">AGENT-CAPABILITIES</span>'
+        if "SEQUENCE" in k:             return '<span class="badge ident">SEQUENCE</span>'
         return f'<span class="badge">{_html.escape(klass)}</span>'
 
     def _icon(klass: str) -> str:
-        if not klass:
-            return ""
+        if not klass: return ""
         k = klass.upper()
         if "OBJECT-TYPE" in k:
             return '<svg width="12" height="12" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="12" fill="none" stroke="currentColor"/></svg>'
@@ -1218,6 +1462,8 @@ def render_tree(tree: Dict[str, Any]) -> str:
             return '<svg width="12" height="12" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5" fill="none" stroke="currentColor"/></svg>'
         if "NOTIFICATION" in k:
             return '<svg width="12" height="12" viewBox="0 0 24 24"><path d="M12 3v18M3 12h18" fill="none" stroke="currentColor"/></svg>'
+        if "TEXTUAL-CONVENTION" in k:
+            return '<svg width="12" height="12" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10" fill="none" stroke="currentColor"/></svg>'
         return ""
 
     def _node_html(nodeDict: Dict[str, Any], label: str, path: str) -> str:
@@ -1260,8 +1506,10 @@ def render_tree(tree: Dict[str, Any]) -> str:
 
         desc_html = f"<div class='small muted'>{_html.escape(desc).replace('\\n','<br>')}</div>" if desc else ""
 
+        anchor_id = f'oid-{_html.escape(oid)}' if oid and re.fullmatch(r"\d+(?:\.\d+)+", oid) else ""
+
         return f"""
-<details data-oid="{data_oid}" data-sym-oid="{data_sym}" data-name="{data_name}" data-klass="{data_klass}" data-syntax="{data_syn}" data-desc="{data_desc}" data-path="{data_path}" data-enums="{data_enums}">
+<details id="{anchor_id}" data-oid="{data_oid}" data-sym-oid="{data_sym}" data-name="{data_name}" data-klass="{data_klass}" data-syntax="{data_syn}" data-desc="{data_desc}" data-path="{data_path}" data-enums="{data_enums}">
   <summary class="node" onclick="selectNode(event,this)">
     <span class="tw">▶️</span>
     {_icon(klass)}
@@ -1270,6 +1518,7 @@ def render_tree(tree: Dict[str, Any]) -> str:
     <span class="node-actions">
       <button class="icon-btn" type="button" onclick="expandChildren(event,this)">Expand</button>
       <button class="icon-btn" type="button" onclick="event.preventDefault(); event.stopPropagation(); copyText('{data_oid}')">Copy OID</button>
+      <button class="icon-btn" type="button" onclick="event.preventDefault(); event.stopPropagation(); copyLink('{data_oid}')">Copy link</button>
       <button class="icon-btn" type="button" onclick="event.preventDefault(); event.stopPropagation(); copyText('{data_name}')">Copy name</button>
     </span>
   </summary>
@@ -1358,6 +1607,28 @@ def parse_sources() -> List[str]:
         COMPILED[mod] = {"doc": doc, "raw": txt}
         MOD_TO_PATH[mod] = f"Uploads/{p.name}"
 
+    MODULE_EXPORTS.clear()
+    for mod, entry in COMPILED.items():
+        doc = entry["doc"]
+        names = set()
+        names.update((doc.get("nodes") or {}).keys())
+        # textual conventions
+        # We didn’t store TCs separately; they’re also in nodes thanks to the TC parser.
+        # SEQUENCE names added too.
+        MODULE_EXPORTS[mod] = names
+
+    # Build reverse import index
+    IMPORTED_BY.clear()
+    for importer, entry in COMPILED.items():
+        imps = (entry["doc"].get("imports") or {})
+        for from_mod, syms in imps.items():
+            if not syms: continue
+            IMPORTED_BY.setdefault(from_mod, {}).setdefault(importer, [])
+            # Only keep symbols that the exporter actually defines (nice UX)
+            defined = MODULE_EXPORTS.get(from_mod, set())
+            take = [s for s in syms if (s in defined) or not defined]  # if unknown, still show
+            IMPORTED_BY[from_mod][importer].extend(take)
+
     mods = sorted(COMPILED.keys())
     print(f"[MIB Browser] Parsed modules: {mods or 'NONE'} (auto={len(discovered)} uploads={len(list(UPLOAD_DIR.iterdir()))})")
     return mods
@@ -1418,7 +1689,8 @@ def module_view(module: str):
     nodes = flatten_nodes(module, entry["doc"])
     tree = build_tree(nodes)
     tree_html = render_tree(tree)
-    # NEW: pass meta
+    used_by = IMPORTED_BY.get(module, {})
+    defines_list = sorted(MODULE_EXPORTS.get(module, set()))
     return render_template_string(
         app.jinja_loader.get_source(app.jinja_env, "module.html")[0],
         module=module,
@@ -1427,7 +1699,9 @@ def module_view(module: str):
         modules=sorted(COMPILED.keys()),
         modlist_html=build_modlist_html(),
         imports=entry["doc"].get("imports", {}),
-        module_identity=entry["doc"].get("moduleIdentity")
+        module_identity=entry["doc"].get("moduleIdentity"),
+        used_by=used_by,
+        defines_list=defines_list,
     )
 
 @app.route("/upload", methods=["POST"])
@@ -1441,6 +1715,46 @@ def upload():
             f.save(dest)
         parse_sources()
     return redirect(url_for("index"))
+
+@app.route("/remove/<module>", methods=["POST"])
+def remove_module(module: str):
+    rel = MOD_TO_PATH.get(module)
+    if not rel:
+        return redirect(url_for("index"))
+
+    # If it's an uploaded file, delete it from disk and fully re-parse sources.
+    if rel.startswith("Uploads/"):
+        try:
+            (UPLOAD_DIR / rel.split("/", 1)[1]).unlink(missing_ok=True)
+        except Exception:
+            pass
+        parse_sources()  # rebuild everything from disk
+        return redirect(url_for("index"))
+
+    # Otherwise (auto-discovered on disk), just unload for this session.
+    # Don’t call parse_sources(), or it will re-discover it.
+    COMPILED.pop(module, None)
+    MOD_TO_PATH.pop(module, None)
+
+    # Rebuild in-memory indexes (exports / imported-by) after removal.
+    MODULE_EXPORTS.clear()
+    for mod, entry in COMPILED.items():
+        names = set((entry["doc"].get("nodes") or {}).keys())
+        MODULE_EXPORTS[mod] = names
+
+    IMPORTED_BY.clear()
+    for importer, entry in COMPILED.items():
+        imps = (entry["doc"].get("imports") or {})
+        for from_mod, syms in imps.items():
+            if not syms:
+                continue
+            IMPORTED_BY.setdefault(from_mod, {}).setdefault(importer, [])
+            defined = MODULE_EXPORTS.get(from_mod, set())
+            take = [s for s in syms if (s in defined) or not defined]
+            IMPORTED_BY[from_mod][importer].extend(take)
+
+    return redirect(url_for("index"))
+
 
 @app.route("/clear", methods=["POST"])
 def clear_all():
