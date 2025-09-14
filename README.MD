@@ -3,8 +3,8 @@
 A lightweight, single-file web application to **browse, search, and inspect SNMP MIB files**.  
 Built with **Flask** (Python) and a custom best-effort **SMIv2 parser**, this tool does **not require PySMI or MIB compilation**. Just upload your `.mib` or `.txt` files and start exploring the OID tree in your browser.  
 
-![screenshot](screenshot\app.png)
-![screenshot](screenshot\inspector.png)
+![screenshot](/screenshot/app.png/)
+![screenshot](/screenshot/inspector.png)
 
 ---
 
