@@ -19,6 +19,8 @@ from typing import Dict, Any, List, Tuple, Optional
 from flask import Flask, request, redirect, url_for, render_template_string, jsonify
 from jinja2.loaders import DictLoader
 
+import difflib
+
 
 app = Flask(__name__)
 
@@ -54,7 +56,7 @@ BASE_HTML = r"""
     .muted { color: #888; }
     html.dark .muted { color:#aaa; }
     input[type="text"], input[type="file"] { padding: 8px; border-radius: 8px; border:1px solid #ccc; }
-    input[type="text"] { width: 80%; }
+    input[type="text"] { width: 20%; }
     .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
     .btn { padding: 6px 10px; border-radius: 8px; border:1px solid #bbb; background:#f7f7f7; cursor:pointer; color:#000; }
     html.dark .btn { background:#222; color:#eee; border-color:#555; }
@@ -94,7 +96,7 @@ BASE_HTML = r"""
     /* Inspector panel (right side) */
     #inspector { position: static; border:1px solid #eee; border-radius: 10px; padding: 10px 12px; }
     html.dark #inspector { border-color:#333; }
-    #inspector.pinned { position: sticky; top: 70px; }
+    #inspector.pinned { position: sticky; top: 120px; }
     .breadcrumb { font-size:12px; color:#666; margin-bottom:8px; word-break:break-all; }
     html.dark .breadcrumb { color:#aaa; }
 
@@ -196,7 +198,7 @@ BASE_HTML = r"""
       color: #888;
       border-right: 1px solid #ddd;
       background: inherit;
-      z-index: 1100;
+      z-index: 100;
       background-color: #000;
       font-size: 25px;
     }
@@ -242,6 +244,8 @@ BASE_HTML = r"""
 <body>
 <header>
   <h1>Web MIB Browser</h1>
+   <span class="small muted">Modules loaded: {{ modules|length }}</span>
+
   <div class="row">
     <form action="{{ url_for('upload') }}" method="post" enctype="multipart/form-data">
       <input type="file" name="files" multiple />
@@ -254,13 +258,19 @@ BASE_HTML = r"""
     <button id="compactBtn" class="btn" type="button" onclick="toggleCompact()" data-mode="verbose"></button>
     <button class="btn" type="button" onclick="resetSearch()">Reset Search</button>
 
+  <form onsubmit="doSearch(event)" class="grow">
+    <input id="q" class="grow" type="text" placeholder="Search (name, OID, type, description) ..." />
+    <label class="small"><input type="checkbox" id="chkRegex"> Regex</label>
+    <label class="small"><input type="checkbox" id="chkFuzzy"> Fuzzy</label>
+    <label class="small"><input type="checkbox" id="sName"  checked> Names</label>
+    <label class="small"><input type="checkbox" id="sDesc"  checked> Descriptions</label>
+    <label class="small"><input type="checkbox" id="sSyntax" checked> Syntax</label>
+    <label class="small"><input type="checkbox" id="sOID"   checked> OIDs</label>
+  </form>
   </div>
   <div class="row grow">
-    <form onsubmit="doSearch(event)" class="grow">
-      <input id="q" class="grow" type="text" placeholder="Search (name, OID, type, description) ..." />
-    </form>
-    <span class="small muted">Modules loaded: {{ modules|length }}</span>
 
+   
   </div>
 </header>
 
@@ -369,13 +379,47 @@ window.highlight = function (term, rootId) {
 };
 
 // Inspector utilities
-window.setInspector = function({name='', oid='', sym_oid='', klass='', syntax='', desc='', path='', enums=[]}){
+window.setInspector = function({name='', oid='', sym_oid='', klass='', syntax='', desc='', path='', enums=[], units='', reference='', ranges={}}){
   const byId = id => document.getElementById(id);
   if(!byId('i_name')) return;
 
   byId('i_name').textContent   = name;
   byId('i_class').textContent  = klass;
   byId('i_syntax').textContent = syntax;
+  byId('i_desc').innerHTML     = (desc || '').replace(/\\n/g,'<br>');
+
+  // Units
+  if (byId('i_units')) {
+    byId('i_units').textContent = units || '';
+    const row = byId('row_units');
+    row.style.display = units ? '' : 'none';
+  }
+
+  // Reference
+  if (byId('i_ref')) {
+    if (reference) {
+      const html = window.escHtml(reference).replace(/\bRFC\s*([0-9]{3,5})\b/gi,
+        (m, num) => `<a href="https://www.rfc-editor.org/rfc/rfc${num}" target="_blank" rel="noopener">RFC ${num}</a>`
+      );
+      byId('i_ref').innerHTML = html;
+    } else {
+      byId('i_ref').innerHTML = '';
+    }
+    const row = byId('row_ref');
+    row.style.display = reference ? '' : 'none';
+  }
+
+  // Range
+  if (byId('i_range')) {
+    let t = '';
+    if (ranges && (ranges.range || ranges.size)) {
+      if (ranges.range) t += `Value: ${ranges.range} `;
+      if (ranges.size)  t += `Size: ${ranges.size}`;
+    }
+    byId('i_range').textContent = t;
+    const row = byId('row_range');
+    row.style.display = t ? '' : 'none';
+  }
 
   // safe newlines
   byId('i_desc').innerHTML = (desc || '').replace(/\\n/g,'<br>');
@@ -437,7 +481,8 @@ window.inspectSearchResult = function(card){
     syntax: d.syntax || '',
     desc:   d.desc   || '',
     path:   d.path   || '',
-    enums:  d.enums ? JSON.parse(d.enums) : []
+    enums:  d.enums ? JSON.parse(d.enums) : [],
+
   });
 };
 
@@ -445,9 +490,21 @@ window.inspectSearchResult = function(card){
 window.doSearch = async function(e){
   if(e){ e.preventDefault(); }
   const q = document.getElementById('q').value.trim();
+  const useRegex = document.getElementById('chkRegex')?.checked ? 1 : 0;
+  const useFuzzy = document.getElementById('chkFuzzy')?.checked ? 1 : 0;
+
+  const scopes = [];
+  if(document.getElementById('sName')?.checked)  scopes.push('name');
+  if(document.getElementById('sDesc')?.checked)  scopes.push('desc');
+  if(document.getElementById('sSyntax')?.checked)scopes.push('syntax');
+  if(document.getElementById('sOID')?.checked)   scopes.push('oid');
+  // module scope is always useful for context; include implicitly:
+  scopes.push('module');
+
   if(!q){ return; }
 
-  const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
+  const url = `/api/search?q=${encodeURIComponent(q)}&regex=${useRegex}&fuzzy=${useFuzzy}&scope=${encodeURIComponent(scopes.join(','))}`;
+  const res = await fetch(url);
   const data = await res.json();
 
   const maincol   = document.getElementById('maincol');
@@ -569,7 +626,10 @@ window.selectNode = function(ev, summaryEl){
     syntax: d.syntax || '',
     desc:   d.desc   || '',
     path:   d.path   || '',
-    enums:  d.enums ? JSON.parse(d.enums) : []
+    enums:  d.enums ? JSON.parse(d.enums) : [],
+    units:  d.units  || '',
+    reference: d.ref || '',
+    ranges: d.ranges ? JSON.parse(d.ranges) : {}
   });
 };
 
@@ -856,6 +916,15 @@ MODULE_HTML = r"""
         <div class="small muted" id="i_desc" style="margin-top:8px;"></div>
         <!-- enum/bitfield pretty table -->
         <div id="i_enum" style="margin-top:8px;"></div>
+        <div id="row_units" style="display: flex;font-size: 12px;">
+          <div id="i_range" class="mono" style="width: 140px;">Units</div><div id="i_units"></div>
+        </div>
+        <div id="row_ref" style="display: flex;font-size: 12px;">
+          <div id="i_range" class="mono" style="width: 140px;">Reference</div><div id="i_ref"></div>
+        </div>
+        <div id="row_range" style="display: flex;font-size: 12px; ">
+          <div id="i_range" class="mono" style="width: 140px;">Range/Size</div><div id="i_range"></div>
+        </div>
 
         <div style="margin-top:8px;">
           <button class="btn" type="button"
@@ -971,6 +1040,20 @@ RE_OBJECT_GROUP = re.compile(r"(?ms)^\s*(?P<name>[A-Za-z][\w\-]*)\s+OBJECT-GROUP
 RE_MODULE_COMPLIANCE = re.compile(r"(?ms)^\s*(?P<name>[A-Za-z][\w\-]*)\s+MODULE-COMPLIANCE\s+(?P<body>.*?)::=\s*\{(?P<parent>[^}]*)\}")
 RE_AGENT_CAPS = re.compile(r"(?ms)^\s*(?P<name>[A-Za-z][\w\-]*)\s+AGENT-CAPABILITIES\s+(?P<body>.*?)::=\s*\{(?P<parent>[^}]*)\}")
 
+RANGE_RE = re.compile(r"\(\s*([+-]?\d+)\s*\.\.\s*([+-]?\d+)\s*\)")
+SIZE_RE  = re.compile(r"\bSIZE\s*\(\s*([0-9]+)\s*(?:\.\.\s*([0-9]+))?\s*\)", re.I)
+
+def _extract_ranges(syntax: str) -> Dict[str, str]:
+    if not syntax: return {}
+    out = {}
+    m = RANGE_RE.search(syntax)
+    if m:
+        out["range"] = f"{m.group(1)}..{m.group(2)}"
+    ms = SIZE_RE.search(syntax)
+    if ms:
+        lo = ms.group(1); hi = ms.group(2) or lo
+        out["size"] = f"{lo}..{hi}" if hi != lo else lo
+    return out
 
 def parse_imports_block(src: str) -> Dict[str, List[str]]:
     """
@@ -1188,25 +1271,48 @@ def parse_mib_text(text: str) -> Dict[str, Any]:
         if oid: sym2oid[name] = oid
 
     nodes: Dict[str, Dict[str, Any]] = {}
-    def add_node(name: str, parent_body: str, klass: str, syntax: str, description: str):
-        oid = _resolve_braced_oid(parent_body, sym2oid)
+    
+    def add_node(
+      name: str,
+      parent_body: str,
+      klass: str,
+      syntax: str,
+      description: str,
+      *,
+      units: str = "",
+      reference: str = "",
+      ranges: Optional[Dict[str, str]] = None,
+  ):
+      # resolve parent → numeric OID
+      oid = _resolve_braced_oid(parent_body, sym2oid)
 
-        # symbolic display like "sysOREntry 4" -> "sysOREntry.4"
-        sym_disp = re.sub(r"\s+", " ", (parent_body or "").strip()).replace(","," ").strip()
-        sym_oid = ".".join([t for t in sym_disp.split(" ") if t])
+      # symbolic display like "sysOREntry 4" -> "sysOREntry.4"
+      sym_disp = re.sub(r"\s+", " ", (parent_body or "").strip()).replace(",", " ").strip()
+      sym_oid = ".".join([t for t in sym_disp.split(" ") if t])
 
-        enums = _extract_enums_from_syntax(syntax)
-        nodes[name] = {
-            "name": name,
-            "oid": oid,
-            "sym_oid": sym_oid,
-            "klass": klass,
-            "syntax": syntax,
-            "description": description.strip(),
-            "enums": enums
-        }
-        if oid and re.fullmatch(r"\d+(?:\.\d+)+", oid):
-            sym2oid[name] = oid
+      # enums from INTEGER {..} / BITS {..}
+      enums = _extract_enums_from_syntax(syntax or "")
+
+      # normalize extras
+      if ranges is None:
+          ranges = {}
+
+      nodes[name] = {
+          "name": name,
+          "oid": oid,
+          "sym_oid": sym_oid,
+          "klass": klass,
+          "syntax": syntax,
+          "description": (description or "").strip(),
+          "enums": enums,
+          "units": units or "",
+          "reference": reference or "",
+          "ranges": ranges,
+      }
+
+      # allow later references to this symbol
+      if oid and re.fullmatch(r"\d+(?:\.\d+)+", oid):
+          sym2oid[name] = oid
 
     for m in RE_OBJIDENTITY.finditer(src):
         name = m.group("name"); body = m.group("body"); parent = m.group("parent")
@@ -1214,10 +1320,14 @@ def parse_mib_text(text: str) -> Dict[str, Any]:
         add_node(name, parent, "OBJECT-IDENTITY", "", desc)
 
     for m in RE_OBJTYPE.finditer(src):
-        name = m.group("name"); body = m.group("body"); parent = m.group("parent")
-        syntax = _extract_field(body, "SYNTAX")
-        desc = _extract_field(body, "DESCRIPTION")
-        add_node(name, parent, "OBJECT-TYPE", syntax, desc)
+      name = m.group("name"); body = m.group("body"); parent = m.group("parent")
+      syntax = _extract_field(body, "SYNTAX")
+      desc   = _extract_field(body, "DESCRIPTION")
+      units  = _extract_field(body, "UNITS")
+      ref    = _extract_field(body, "REFERENCE")
+      ranges = _extract_ranges(syntax)
+
+      add_node(name, parent, "OBJECT-TYPE", syntax, desc, units=units, reference=ref, ranges=ranges)
 
     for m in RE_NOTIFICATION.finditer(src):
         name = m.group("name"); body = m.group("body"); parent = m.group("parent")
@@ -1503,13 +1613,21 @@ def render_tree(tree: Dict[str, Any]) -> str:
         data_path  = _html.escape(path or label, quote=True)
         data_enums = _html.escape(json.dumps(enums), quote=True)
         data_sym   = _html.escape(sym_oid or "", quote=True)
-
+        
+        data_units = _html.escape((n and n.get("units") or ""), quote=True)
+        data_ref   = _html.escape((n and n.get("reference") or ""), quote=True)
+        data_ranges = _html.escape(json.dumps((n and n.get("ranges") or {})), quote=True)
+        
         desc_html = f"<div class='small muted'>{_html.escape(desc).replace('\\n','<br>')}</div>" if desc else ""
 
         anchor_id = f'oid-{_html.escape(oid)}' if oid and re.fullmatch(r"\d+(?:\.\d+)+", oid) else ""
 
+
+
         return f"""
-<details id="{anchor_id}" data-oid="{data_oid}" data-sym-oid="{data_sym}" data-name="{data_name}" data-klass="{data_klass}" data-syntax="{data_syn}" data-desc="{data_desc}" data-path="{data_path}" data-enums="{data_enums}">
+<details id="{anchor_id}" data-oid="{data_oid}" data-sym-oid="{data_sym}" data-name="{data_name}"
+         data-klass="{data_klass}" data-syntax="{data_syn}" data-desc="{data_desc}" data-path="{data_path}"
+         data-enums="{data_enums}" data-units="{data_units}" data-ref="{data_ref}" data-ranges="{data_ranges}">
   <summary class="node" onclick="selectNode(event,this)">
     <span class="tw">▶️</span>
     {_icon(klass)}
@@ -1553,8 +1671,11 @@ def flatten_nodes(mod_name: str, doc: Dict[str, Any]) -> List[Dict[str, Any]]:
           "klass": val.get("klass"),
           "syntax": val.get("syntax") or "",
           "description": (val.get("description") or "").strip(),
-          "enums": val.get("enums") or []
-      })
+          "enums": val.get("enums") or [],
+          "units": val.get("units") or "",
+          "reference": val.get("reference") or "",
+          "ranges": val.get("ranges") or {},
+        })
     def _oid_key(n):
         parts = []
         if n["oid"]:
@@ -1650,25 +1771,65 @@ def build_modlist_html() -> str:
 # ==========================
 # Search
 # ==========================
-def search_all(term: str) -> List[Dict[str, Any]]:
-    term = (term or "").strip().lower()
-    if not term: return []
-    hits: List[Dict[str, Any]] = []
+def search_all(term: str, *, use_regex: bool, use_fuzzy: bool, scopes: List[str], limit: int = 200):
+    """
+    scopes: any of {"name","oid","syntax","desc","module"}
+    use_regex: interpret 'term' as a Python regex (case-insensitive)
+    use_fuzzy: fuzzy-match (on 'name' first; fall back to desc/syntax)
+    """
+    term = (term or "").strip()
+    if not term:
+        return []
+
+    all_nodes: List[Dict[str, Any]] = []
     for mod, entry in COMPILED.items():
         for n in flatten_nodes(mod, entry["doc"]):
-            hay = " ".join([
-              n.get("module",""), n.get("name",""),
-              str(n.get("oid","") or ""),
-              n.get("sym_oid","") or "",
-              n.get("klass","") or "",
-              n.get("syntax","") or "",
-              n.get("description","") or ""
-          ]).lower()
-            if term in hay:
-                hits.append(n)
-            if len(hits) >= 200:
-                break
-    return hits
+            all_nodes.append(n)
+
+    def haystack(n):
+        fields = []
+        if "module" in scopes: fields.append(n.get("module",""))
+        if "name"   in scopes: fields.append(n.get("name",""))
+        if "oid"    in scopes: fields.append(str(n.get("oid") or ""))
+        if "syntax" in scopes: fields.append(n.get("syntax",""))
+        if "desc"   in scopes: fields.append(n.get("description",""))
+        return " ".join(fields)
+
+    hits: List[Tuple[float, Dict[str, Any]]] = []
+
+    if use_regex:
+        try:
+            rx = re.compile(term, re.I)
+        except re.error:
+            return []  # invalid regex -> no results (or you could return a message)
+        for n in all_nodes:
+            if rx.search(haystack(n)):
+                hits.append((1.0, n))
+    elif use_fuzzy:
+        # score primarily by name similarity, then by best of desc/syntax
+        for n in all_nodes:
+            name = n.get("name","")
+            desc = n.get("description","")
+            syn  = n.get("syntax","")
+            s1 = difflib.SequenceMatcher(a=term.lower(), b=name.lower()).ratio()
+            s2 = difflib.SequenceMatcher(a=term.lower(), b=desc.lower()).ratio() if "desc" in scopes else 0.0
+            s3 = difflib.SequenceMatcher(a=term.lower(), b=syn.lower()).ratio()  if "syntax" in scopes else 0.0
+            best = max(s1, s2, s3)
+            if best >= 0.55 or name.lower().startswith(term.lower()):
+                hits.append((best, n))
+        hits.sort(key=lambda t: (-t[0], t[1].get("module",""), t[1].get("name","")))
+        hits = hits[:limit]
+    else:
+        t = term.lower()
+        for n in all_nodes:
+            if t in haystack(n).lower():
+                hits.append((1.0, n))
+
+    # trim non-fuzzy default to insertion order (already limited in caller)
+    if not use_fuzzy:
+        hits = hits[:limit]
+
+    return [n for _, n in hits]
 
 # ==========================
 # Routes
@@ -1770,7 +1931,18 @@ def clear_all():
 @app.route("/api/search")
 def api_search():
     q = request.args.get("q","")
-    hits = search_all(q)
+    use_regex = request.args.get("regex","0") in ("1","true","True")
+    use_fuzzy = request.args.get("fuzzy","0") in ("1","true","True")
+
+    # scopes: comma-separated; default = all
+    raw_scopes = request.args.get("scope","")
+    if raw_scopes:
+        scopes = [s for s in raw_scopes.split(",") if s in {"name","oid","syntax","desc","module"}]
+        if not scopes: scopes = ["name","oid","syntax","desc","module"]
+    else:
+        scopes = ["name","oid","syntax","desc","module"]
+
+    hits = search_all(q, use_regex=use_regex, use_fuzzy=use_fuzzy, scopes=scopes)
     return jsonify({"results": hits})
 
 
