@@ -1,0 +1,1538 @@
+{
+  "adsl": {
+    "class": "objectidentity",
+    "name": "adsl",
+    "oid": "1.3.6.1.4.1.763.3.2"
+  },
+  "adslTrainedMode": {
+    "class": "objecttype",
+    "maxaccess": "read-only",
+    "name": "adslTrainedMode",
+    "nodetype": "scalar",
+    "oid": "1.3.6.1.4.1.763.3.2.2",
+    "status": "current",
+    "syntax": {
+      "class": "type",
+      "type": "DisplayString"
+    }
+  },
+  "adslTrainedPath": {
+    "class": "objecttype",
+    "maxaccess": "read-only",
+    "name": "adslTrainedPath",
+    "nodetype": "scalar",
+    "oid": "1.3.6.1.4.1.763.3.2.1",
+    "status": "current",
+    "syntax": {
+      "class": "type",
+      "type": "DisplayString"
+    }
+  },
+  "atm": {
+    "class": "objectidentity",
+    "name": "atm",
+    "oid": "1.3.6.1.4.1.763.3.3"
+  },
+  "atmVcl2PCR": {
+    "class": "objecttype",
+    "maxaccess": "read-write",
+    "name": "atmVcl2PCR",
+    "nodetype": "column",
+    "oid": "1.3.6.1.4.1.763.3.3.1.1.10",
+    "status": "current",
+    "syntax": {
+      "class": "type",
+      "type": "INTEGER"
+    }
+  },
+  "atmVcl2Protocol": {
+    "class": "objecttype",
+    "maxaccess": "read-only",
+    "name": "atmVcl2Protocol",
+    "nodetype": "column",
+    "oid": "1.3.6.1.4.1.763.3.3.1.1.3",
+    "status": "current",
+    "syntax": {
+      "class": "type",
+      "constraints": {
+        "enumeration": {
+          "bridged1483": 1,
+          "none": 0,
+          "pppoallc": 4,
+          "pppoavcmux": 2,
+          "pppoe": 8,
+          "routed1483": 2048
+        }
+      },
+      "type": "INTEGER"
+    }
+  },
+  "atmVcl2RxErrs": {
+    "class": "objecttype",
+    "maxaccess": "read-only",
+    "name": "atmVcl2RxErrs",
+    "nodetype": "column",
+    "oid": "1.3.6.1.4.1.763.3.3.1.1.9",
+    "status": "current",
+    "syntax": {
+      "class": "type",
+      "type": "Gauge32"
+    },
+    "units": "PDUs"
+  },
+  "atmVcl2RxPDUs": {
+    "class": "objecttype",
+    "maxaccess": "read-only",
+    "name": "atmVcl2RxPDUs",
+    "nodetype": "column",
+    "oid": "1.3.6.1.4.1.763.3.3.1.1.7",
+    "status": "current",
+    "syntax": {
+      "class": "type",
+      "type": "Gauge32"
+    },
+    "units": "PDUs"
+  },
+  "atmVcl2RxRate": {
+    "class": "objecttype",
+    "maxaccess": "read-only",
+    "name": "atmVcl2RxRate",
+    "nodetype": "column",
+    "oid": "1.3.6.1.4.1.763.3.3.1.1.4",
+    "status": "current",
+    "syntax": {
+      "class": "type",
+      "type": "Gauge32"
+    },
+    "units": "bps"
+  },
+  "atmVcl2RxSdu": {
+    "class": "objecttype",
+    "maxaccess": "read-only",
+    "name": "atmVcl2RxSdu",
+    "nodetype": "column",
+    "oid": "1.3.6.1.4.1.763.3.3.1.1.12",
+    "status": "current",
+    "syntax": {
+      "class": "type",
+      "type": "INTEGER"
+    }
+  },
+  "atmVcl2SCR": {
+    "class": "objecttype",
+    "maxaccess": "read-only",
+    "name": "atmVcl2SCR",
+    "nodetype": "column",
+    "oid": "1.3.6.1.4.1.763.3.3.1.1.11",
+    "status": "current",
+    "syntax": {
+      "class": "type",
+      "type": "INTEGER"
+    }
+  },
+  "atmVcl2TxErrs": {
+    "class": "objecttype",
+    "maxaccess": "read-only",
+    "name": "atmVcl2TxErrs",
+    "nodetype": "column",
+    "oid": "1.3.6.1.4.1.763.3.3.1.1.8",
+    "status": "current",
+    "syntax": {
+      "class": "type",
+      "type": "Gauge32"
+    },
+    "units": "PDUs"
+  },
+  "atmVcl2TxPDUs": {
+    "class": "objecttype",
+    "maxaccess": "read-only",
+    "name": "atmVcl2TxPDUs",
+    "nodetype": "column",
+    "oid": "1.3.6.1.4.1.763.3.3.1.1.6",
+    "status": "current",
+    "syntax": {
+      "class": "type",
+      "type": "Gauge32"
+    },
+    "units": "PDUs"
+  },
+  "atmVcl2TxRate": {
+    "class": "objecttype",
+    "maxaccess": "read-only",
+    "name": "atmVcl2TxRate",
+    "nodetype": "column",
+    "oid": "1.3.6.1.4.1.763.3.3.1.1.5",
+    "status": "current",
+    "syntax": {
+      "class": "type",
+      "type": "Gauge32"
+    },
+    "units": "bps"
+  },
+  "atmVcl2TxSdu": {
+    "class": "objecttype",
+    "maxaccess": "read-only",
+    "name": "atmVcl2TxSdu",
+    "nodetype": "column",
+    "oid": "1.3.6.1.4.1.763.3.3.1.1.13",
+    "status": "current",
+    "syntax": {
+      "class": "type",
+      "type": "INTEGER"
+    }
+  },
+  "atmVcl2Vci": {
+    "class": "objecttype",
+    "maxaccess": "not-accessible",
+    "name": "atmVcl2Vci",
+    "nodetype": "column",
+    "oid": "1.3.6.1.4.1.763.3.3.1.1.2",
+    "status": "optional",
+    "syntax": {
+      "class": "type",
+      "constraints": {
+        "range": [
+          {
+            "max": 65535,
+            "min": 0
+          }
+        ]
+      },
+      "type": "INTEGER"
+    }
+  },
+  "atmVcl2Vpi": {
+    "class": "objecttype",
+    "maxaccess": "not-accessible",
+    "name": "atmVcl2Vpi",
+    "nodetype": "column",
+    "oid": "1.3.6.1.4.1.763.3.3.1.1.1",
+    "status": "optional",
+    "syntax": {
+      "class": "type",
+      "constraints": {
+        "range": [
+          {
+            "max": 4095,
+            "min": 0
+          }
+        ]
+      },
+      "type": "INTEGER"
+    }
+  },
+  "atmVcl2_Table": {
+    "class": "objecttype",
+    "maxaccess": "not-accessible",
+    "name": "atmVcl2-Table",
+    "nodetype": "table",
+    "oid": "1.3.6.1.4.1.763.3.3.1",
+    "status": "mandatory"
+  },
+  "atmVclEntry2": {
+    "class": "objecttype",
+    "indices": [
+      {
+        "implied": 0,
+        "module": "EFFICIENT-MIB",
+        "object": "ifIndex"
+      },
+      {
+        "implied": 0,
+        "module": "EFFICIENT-MIB",
+        "object": "ifIndex"
+      },
+      {
+        "implied": 0,
+        "module": "EFFICIENT-MIB",
+        "object": "ifIndex"
+      }
+    ],
+    "maxaccess": "not-accessible",
+    "name": "atmVclEntry2",
+    "nodetype": "row",
+    "oid": "1.3.6.1.4.1.763.3.3.1.1",
+    "status": "mandatory"
+  },
+  "atu_C": {
+    "class": "objectidentity",
+    "name": "atu-C",
+    "oid": "1.3.6.1.4.1.763.1.5010.2.2"
+  },
+  "atu_R": {
+    "class": "objectidentity",
+    "name": "atu-R",
+    "oid": "1.3.6.1.4.1.763.1.5010.2.1"
+  },
+  "bridge": {
+    "class": "objectidentity",
+    "name": "bridge",
+    "oid": "1.3.6.1.4.1.763.1.5010.1"
+  },
+  "efficient": {
+    "class": "objectidentity",
+    "name": "efficient",
+    "oid": "1.3.6.1.4.1.763"
+  },
+  "filtIndex": {
+    "class": "objecttype",
+    "maxaccess": "not-accessible",
+    "name": "filtIndex",
+    "nodetype": "column",
+    "oid": "1.3.6.1.4.1.763.3.5.3.24.1.1",
+    "status": "current",
+    "syntax": {
+      "class": "type",
+      "constraints": {
+        "range": [
+          {
+            "max": 19,
+            "min": 0
+          }
+        ]
+      },
+      "type": "INTEGER"
+    }
+  },
+  "iad8600": {
+    "class": "objectidentity",
+    "name": "iad8600",
+    "oid": "1.3.6.1.4.1.763.1.8600"
+  },
+  "iad8600Data": {
+    "class": "objectidentity",
+    "name": "iad8600Data",
+    "oid": "1.3.6.1.4.1.763.2.2.3"
+  },
+  "iad8600DataPppAuth": {
+    "class": "objectidentity",
+    "name": "iad8600DataPppAuth",
+    "oid": "1.3.6.1.4.1.763.2.2.3.1"
+  },
+  "iad8600DataPppAuthPassword": {
+    "class": "objecttype",
+    "maxaccess": "read-write",
+    "name": "iad8600DataPppAuthPassword",
+    "nodetype": "scalar",
+    "oid": "1.3.6.1.4.1.763.2.2.3.1.2",
+    "status": "mandatory",
+    "syntax": {
+      "class": "type",
+      "type": "DisplayString"
+    }
+  },
+  "iad8600DataPppAuthUsername": {
+    "class": "objecttype",
+    "maxaccess": "read-write",
+    "name": "iad8600DataPppAuthUsername",
+    "nodetype": "scalar",
+    "oid": "1.3.6.1.4.1.763.2.2.3.1.1",
+    "status": "mandatory",
+    "syntax": {
+      "class": "type",
+      "type": "DisplayString"
+    }
+  },
+  "iad8600Info": {
+    "class": "objectidentity",
+    "name": "iad8600Info",
+    "oid": "1.3.6.1.4.1.763.2.2.1"
+  },
+  "iad8600System": {
+    "class": "objectidentity",
+    "name": "iad8600System",
+    "oid": "1.3.6.1.4.1.763.2.2.5"
+  },
+  "iad8600SystemCommunity": {
+    "class": "objectidentity",
+    "name": "iad8600SystemCommunity",
+    "oid": "1.3.6.1.4.1.763.2.2.5.1"
+  },
+  "iad8600SystemGetCommunityString": {
+    "class": "objecttype",
+    "maxaccess": "read-write",
+    "name": "iad8600SystemGetCommunityString",
+    "nodetype": "scalar",
+    "oid": "1.3.6.1.4.1.763.2.2.5.1.1",
+    "status": "mandatory",
+    "syntax": {
+      "class": "type",
+      "type": "DisplayString"
+    }
+  },
+  "iad8600SystemTrapDest": {
+    "class": "objectidentity",
+    "name": "iad8600SystemTrapDest",
+    "oid": "1.3.6.1.4.1.763.2.2.5.2"
+  },
+  "iad8600SystemTrapDestAddr1": {
+    "class": "objecttype",
+    "maxaccess": "read-write",
+    "name": "iad8600SystemTrapDestAddr1",
+    "nodetype": "scalar",
+    "oid": "1.3.6.1.4.1.763.2.2.5.2.1",
+    "status": "mandatory",
+    "syntax": {
+      "class": "type",
+      "type": "IpAddress"
+    }
+  },
+  "iad8600SystemTrapDestAddr2": {
+    "class": "objecttype",
+    "maxaccess": "read-write",
+    "name": "iad8600SystemTrapDestAddr2",
+    "nodetype": "scalar",
+    "oid": "1.3.6.1.4.1.763.2.2.5.2.2",
+    "status": "mandatory",
+    "syntax": {
+      "class": "type",
+      "type": "IpAddress"
+    }
+  },
+  "iad8600SystemTrapDestAddr3": {
+    "class": "objecttype",
+    "maxaccess": "read-write",
+    "name": "iad8600SystemTrapDestAddr3",
+    "nodetype": "scalar",
+    "oid": "1.3.6.1.4.1.763.2.2.5.2.3",
+    "status": "mandatory",
+    "syntax": {
+      "class": "type",
+      "type": "IpAddress"
+    }
+  },
+  "iad8600SystemTrapDestAddr4": {
+    "class": "objecttype",
+    "maxaccess": "read-write",
+    "name": "iad8600SystemTrapDestAddr4",
+    "nodetype": "scalar",
+    "oid": "1.3.6.1.4.1.763.2.2.5.2.4",
+    "status": "mandatory",
+    "syntax": {
+      "class": "type",
+      "type": "IpAddress"
+    }
+  },
+  "iad8600Voice": {
+    "class": "objectidentity",
+    "name": "iad8600Voice",
+    "oid": "1.3.6.1.4.1.763.2.2.2"
+  },
+  "iad8600Wan": {
+    "class": "objectidentity",
+    "name": "iad8600Wan",
+    "oid": "1.3.6.1.4.1.763.2.2.4"
+  },
+  "imports": {
+    "BRIDGE-MIB": [
+      "MacAddress"
+    ],
+    "SNMPv2-CONF": [
+      "MODULE-COMPLIANCE",
+      "NOTIFICATION-GROUP"
+    ],
+    "SNMPv2-SMI": [
+      "Bits",
+      "Counter32",
+      "Counter64",
+      "Gauge32",
+      "Integer32",
+      "IpAddress",
+      "MODULE-IDENTITY",
+      "MibIdentifier",
+      "NOTIFICATION-TYPE",
+      "OBJECT-IDENTITY",
+      "OBJECT-TYPE",
+      "TimeTicks",
+      "Unsigned32",
+      "enterprises",
+      "iso"
+    ],
+    "SNMPv2-TC": [
+      "DisplayString",
+      "PhysAddress",
+      "TEXTUAL-CONVENTION"
+    ],
+    "class": "imports"
+  },
+  "meta": {
+    "comments": [
+      "ASN.1 source file://C:\\Users\\Manuel Pesenti\\MIB\\MIB\\code\\nested\\EFFICIENT-MIB.mib",
+      "Produced by pysmi-1.6.2 at Sun Sep 14 19:28:45 2025",
+      "On host SurfaceBook platform Windows version 11 by user Manuel Pesenti",
+      "Using Python version 3.13.1 (tags/v3.13.1:0671451, Dec  3 2024, 19:06:28) [MSC v.1942 64 bit (AMD64)]"
+    ],
+    "module": "EFFICIENT-MIB"
+  },
+  "mibIad8600": {
+    "class": "objectidentity",
+    "name": "mibIad8600",
+    "oid": "1.3.6.1.4.1.763.2.2"
+  },
+  "mibRouter5660": {
+    "class": "objectidentity",
+    "name": "mibRouter5660",
+    "oid": "1.3.6.1.4.1.763.2.1"
+  },
+  "mib_extensions": {
+    "class": "objectidentity",
+    "name": "mib-extensions",
+    "oid": "1.3.6.1.4.1.763.2"
+  },
+  "modem": {
+    "class": "objectidentity",
+    "name": "modem",
+    "oid": "1.3.6.1.4.1.763.3.1"
+  },
+  "modem5010": {
+    "class": "objectidentity",
+    "name": "modem5010",
+    "oid": "1.3.6.1.4.1.763.1.5010"
+  },
+  "modem5621": {
+    "class": "objectidentity",
+    "name": "modem5621",
+    "oid": "1.3.6.1.4.1.763.1.5621"
+  },
+  "modemBuildNumber": {
+    "class": "objecttype",
+    "maxaccess": "read-only",
+    "name": "modemBuildNumber",
+    "nodetype": "scalar",
+    "oid": "1.3.6.1.4.1.763.3.1.4",
+    "status": "current",
+    "syntax": {
+      "class": "type",
+      "type": "DisplayString"
+    }
+  },
+  "modemClearCounters": {
+    "class": "objecttype",
+    "maxaccess": "read-write",
+    "name": "modemClearCounters",
+    "nodetype": "scalar",
+    "oid": "1.3.6.1.4.1.763.3.1.1",
+    "status": "current",
+    "syntax": {
+      "class": "type",
+      "type": "INTEGER"
+    }
+  },
+  "modemConfigPartNumber": {
+    "class": "objecttype",
+    "maxaccess": "read-only",
+    "name": "modemConfigPartNumber",
+    "nodetype": "scalar",
+    "oid": "1.3.6.1.4.1.763.3.1.3",
+    "status": "current",
+    "syntax": {
+      "class": "type",
+      "type": "DisplayString"
+    }
+  },
+  "modemFirmwareVersion1": {
+    "class": "objecttype",
+    "maxaccess": "read-only",
+    "name": "modemFirmwareVersion1",
+    "nodetype": "scalar",
+    "oid": "1.3.6.1.4.1.763.3.1.5",
+    "status": "current",
+    "syntax": {
+      "class": "type",
+      "type": "DisplayString"
+    }
+  },
+  "modemFirmwareVersion2": {
+    "class": "objecttype",
+    "maxaccess": "read-only",
+    "name": "modemFirmwareVersion2",
+    "nodetype": "scalar",
+    "oid": "1.3.6.1.4.1.763.3.1.6",
+    "status": "current",
+    "syntax": {
+      "class": "type",
+      "type": "DisplayString"
+    }
+  },
+  "modemFirmwareVersion3": {
+    "class": "objecttype",
+    "maxaccess": "read-only",
+    "name": "modemFirmwareVersion3",
+    "nodetype": "scalar",
+    "oid": "1.3.6.1.4.1.763.3.1.7",
+    "status": "current",
+    "syntax": {
+      "class": "type",
+      "type": "DisplayString"
+    }
+  },
+  "modemIsBridge": {
+    "class": "objecttype",
+    "maxaccess": "read-only",
+    "name": "modemIsBridge",
+    "nodetype": "scalar",
+    "oid": "1.3.6.1.4.1.763.3.1.9",
+    "status": "current",
+    "syntax": {
+      "class": "type",
+      "constraints": {
+        "enumeration": {
+          "bridge": 1,
+          "brtr": 3,
+          "rtr": 2
+        }
+      },
+      "type": "INTEGER"
+    }
+  },
+  "modemLANIpAddress": {
+    "class": "objecttype",
+    "maxaccess": "read-write",
+    "name": "modemLANIpAddress",
+    "nodetype": "scalar",
+    "oid": "1.3.6.1.4.1.763.3.1.12",
+    "status": "current",
+    "syntax": {
+      "class": "type",
+      "type": "IpAddress"
+    }
+  },
+  "modemLANMask": {
+    "class": "objecttype",
+    "maxaccess": "read-write",
+    "name": "modemLANMask",
+    "nodetype": "scalar",
+    "oid": "1.3.6.1.4.1.763.3.1.13",
+    "status": "current",
+    "syntax": {
+      "class": "type",
+      "type": "IpAddress"
+    }
+  },
+  "modemMacAddress": {
+    "class": "objecttype",
+    "maxaccess": "read-only",
+    "name": "modemMacAddress",
+    "nodetype": "scalar",
+    "oid": "1.3.6.1.4.1.763.3.1.11",
+    "status": "current",
+    "syntax": {
+      "class": "type",
+      "type": "MacAddress"
+    }
+  },
+  "modemNVRAMVersion": {
+    "class": "objecttype",
+    "maxaccess": "read-only",
+    "name": "modemNVRAMVersion",
+    "nodetype": "scalar",
+    "oid": "1.3.6.1.4.1.763.3.1.10",
+    "status": "current",
+    "syntax": {
+      "class": "type",
+      "constraints": {
+        "fixed": 1,
+        "size": [
+          {
+            "max": 1,
+            "min": 1
+          }
+        ]
+      },
+      "type": "OCTET STRING"
+    }
+  },
+  "modemPartNumber": {
+    "class": "objecttype",
+    "maxaccess": "read-only",
+    "name": "modemPartNumber",
+    "nodetype": "scalar",
+    "oid": "1.3.6.1.4.1.763.3.1.2",
+    "status": "current",
+    "syntax": {
+      "class": "type",
+      "type": "DisplayString"
+    }
+  },
+  "modemReboot": {
+    "class": "objecttype",
+    "maxaccess": "write-only",
+    "name": "modemReboot",
+    "nodetype": "scalar",
+    "oid": "1.3.6.1.4.1.763.3.1.8",
+    "status": "current",
+    "syntax": {
+      "class": "type",
+      "constraints": {
+        "enumeration": {
+          "reboot": 1,
+          "save": 0
+        }
+      },
+      "type": "INTEGER"
+    }
+  },
+  "nvSntpBackupServer": {
+    "class": "objecttype",
+    "maxaccess": "read-write",
+    "name": "nvSntpBackupServer",
+    "nodetype": "scalar",
+    "oid": "1.3.6.1.4.1.763.3.5.4.2",
+    "status": "current",
+    "syntax": {
+      "class": "type",
+      "type": "DisplayString"
+    }
+  },
+  "nvSntpPrimaryServer": {
+    "class": "objecttype",
+    "maxaccess": "read-write",
+    "name": "nvSntpPrimaryServer",
+    "nodetype": "scalar",
+    "oid": "1.3.6.1.4.1.763.3.5.4.1",
+    "status": "current",
+    "syntax": {
+      "class": "type",
+      "type": "DisplayString"
+    }
+  },
+  "nvSntpTimezone": {
+    "class": "objecttype",
+    "maxaccess": "read-write",
+    "name": "nvSntpTimezone",
+    "nodetype": "scalar",
+    "oid": "1.3.6.1.4.1.763.3.5.4.3",
+    "status": "current",
+    "syntax": {
+      "class": "type",
+      "type": "INTEGER"
+    }
+  },
+  "nvatm": {
+    "class": "objectidentity",
+    "name": "nvatm",
+    "oid": "1.3.6.1.4.1.763.3.5.2"
+  },
+  "nvatmVccAalType": {
+    "class": "objecttype",
+    "maxaccess": "read-write",
+    "name": "nvatmVccAalType",
+    "nodetype": "column",
+    "oid": "1.3.6.1.4.1.763.3.5.2.1.1.4",
+    "status": "current",
+    "syntax": {
+      "class": "type",
+      "constraints": {
+        "range": [
+          {
+            "max": 5,
+            "min": 1
+          }
+        ]
+      },
+      "type": "INTEGER"
+    }
+  },
+  "nvatmVccEncType": {
+    "class": "objecttype",
+    "maxaccess": "read-write",
+    "name": "nvatmVccEncType",
+    "nodetype": "column",
+    "oid": "1.3.6.1.4.1.763.3.5.2.1.1.5",
+    "status": "current",
+    "syntax": {
+      "class": "type",
+      "constraints": {
+        "enumeration": {
+          "llc": 1,
+          "vcm": 2
+        }
+      },
+      "type": "INTEGER"
+    }
+  },
+  "nvatmVccEntry": {
+    "class": "objecttype",
+    "indices": [
+      {
+        "implied": 0,
+        "module": "EFFICIENT-MIB",
+        "object": "vccIndex"
+      }
+    ],
+    "maxaccess": "not-accessible",
+    "name": "nvatmVccEntry",
+    "nodetype": "row",
+    "oid": "1.3.6.1.4.1.763.3.5.2.1.1",
+    "status": "mandatory"
+  },
+  "nvatmVccPoeEntry": {
+    "class": "objecttype",
+    "indices": [
+      {
+        "implied": 0,
+        "module": "EFFICIENT-MIB",
+        "object": "vccIndex"
+      },
+      {
+        "implied": 0,
+        "module": "EFFICIENT-MIB",
+        "object": "poeIndex"
+      }
+    ],
+    "maxaccess": "not-accessible",
+    "name": "nvatmVccPoeEntry",
+    "nodetype": "row",
+    "oid": "1.3.6.1.4.1.763.3.5.2.2.1",
+    "status": "mandatory"
+  },
+  "nvatmVccPoeTable": {
+    "class": "objecttype",
+    "maxaccess": "not-accessible",
+    "name": "nvatmVccPoeTable",
+    "nodetype": "table",
+    "oid": "1.3.6.1.4.1.763.3.5.2.2",
+    "status": "mandatory"
+  },
+  "nvatmVccTable": {
+    "class": "objecttype",
+    "maxaccess": "not-accessible",
+    "name": "nvatmVccTable",
+    "nodetype": "table",
+    "oid": "1.3.6.1.4.1.763.3.5.2.1",
+    "status": "mandatory"
+  },
+  "nvatmVccVci": {
+    "class": "objecttype",
+    "maxaccess": "read-write",
+    "name": "nvatmVccVci",
+    "nodetype": "column",
+    "oid": "1.3.6.1.4.1.763.3.5.2.1.1.3",
+    "status": "optional",
+    "syntax": {
+      "class": "type",
+      "constraints": {
+        "range": [
+          {
+            "max": 65535,
+            "min": 0
+          }
+        ]
+      },
+      "type": "INTEGER"
+    }
+  },
+  "nvatmVccVpi": {
+    "class": "objecttype",
+    "maxaccess": "read-write",
+    "name": "nvatmVccVpi",
+    "nodetype": "column",
+    "oid": "1.3.6.1.4.1.763.3.5.2.1.1.2",
+    "status": "optional",
+    "syntax": {
+      "class": "type",
+      "constraints": {
+        "range": [
+          {
+            "max": 4095,
+            "min": 0
+          }
+        ]
+      },
+      "type": "INTEGER"
+    }
+  },
+  "nvram": {
+    "class": "objectidentity",
+    "name": "nvram",
+    "oid": "1.3.6.1.4.1.763.3.5"
+  },
+  "nvsntp": {
+    "class": "objectidentity",
+    "name": "nvsntp",
+    "oid": "1.3.6.1.4.1.763.3.5.4"
+  },
+  "nvsys": {
+    "class": "objectidentity",
+    "name": "nvsys",
+    "oid": "1.3.6.1.4.1.763.3.5.1"
+  },
+  "nvwlan": {
+    "class": "objectidentity",
+    "name": "nvwlan",
+    "oid": "1.3.6.1.4.1.763.3.5.3"
+  },
+  "nvwlanChannel": {
+    "class": "objecttype",
+    "maxaccess": "read-write",
+    "name": "nvwlanChannel",
+    "nodetype": "scalar",
+    "oid": "1.3.6.1.4.1.763.3.5.3.2",
+    "status": "current",
+    "syntax": {
+      "class": "type",
+      "type": "INTEGER"
+    }
+  },
+  "nvwlanDisableSsidBroadcast": {
+    "class": "objecttype",
+    "maxaccess": "read-write",
+    "name": "nvwlanDisableSsidBroadcast",
+    "nodetype": "scalar",
+    "oid": "1.3.6.1.4.1.763.3.5.3.20",
+    "status": "current",
+    "syntax": {
+      "class": "type",
+      "constraints": {
+        "enumeration": {
+          "disable": 0,
+          "enable": 1
+        }
+      },
+      "type": "INTEGER"
+    }
+  },
+  "nvwlanDisabled": {
+    "class": "objecttype",
+    "maxaccess": "read-write",
+    "name": "nvwlanDisabled",
+    "nodetype": "scalar",
+    "oid": "1.3.6.1.4.1.763.3.5.3.21",
+    "status": "current",
+    "syntax": {
+      "class": "type",
+      "constraints": {
+        "enumeration": {
+          "disable": 0,
+          "enable": 1
+        }
+      },
+      "type": "INTEGER"
+    }
+  },
+  "nvwlanEnableFilters": {
+    "class": "objecttype",
+    "maxaccess": "read-write",
+    "name": "nvwlanEnableFilters",
+    "nodetype": "scalar",
+    "oid": "1.3.6.1.4.1.763.3.5.3.18",
+    "status": "current",
+    "syntax": {
+      "class": "type",
+      "constraints": {
+        "enumeration": {
+          "off": 0,
+          "on": 1
+        }
+      },
+      "type": "INTEGER"
+    }
+  },
+  "nvwlanFiltEntry": {
+    "class": "objecttype",
+    "indices": [
+      {
+        "implied": 0,
+        "module": "EFFICIENT-MIB",
+        "object": "filtIndex"
+      }
+    ],
+    "maxaccess": "not-accessible",
+    "name": "nvwlanFiltEntry",
+    "nodetype": "row",
+    "oid": "1.3.6.1.4.1.763.3.5.3.24.1",
+    "status": "mandatory"
+  },
+  "nvwlanFiltMac": {
+    "class": "objecttype",
+    "maxaccess": "read-write",
+    "name": "nvwlanFiltMac",
+    "nodetype": "column",
+    "oid": "1.3.6.1.4.1.763.3.5.3.24.1.3",
+    "status": "current",
+    "syntax": {
+      "class": "type",
+      "type": "MacAddress"
+    }
+  },
+  "nvwlanFiltTable": {
+    "class": "objecttype",
+    "maxaccess": "not-accessible",
+    "name": "nvwlanFiltTable",
+    "nodetype": "table",
+    "oid": "1.3.6.1.4.1.763.3.5.3.24",
+    "status": "mandatory"
+  },
+  "nvwlanFiltUsername": {
+    "class": "objecttype",
+    "maxaccess": "read-write",
+    "name": "nvwlanFiltUsername",
+    "nodetype": "column",
+    "oid": "1.3.6.1.4.1.763.3.5.3.24.1.2",
+    "status": "current",
+    "syntax": {
+      "class": "type",
+      "type": "DisplayString"
+    }
+  },
+  "nvwlanFilterIsDeny": {
+    "class": "objecttype",
+    "maxaccess": "read-write",
+    "name": "nvwlanFilterIsDeny",
+    "nodetype": "scalar",
+    "oid": "1.3.6.1.4.1.763.3.5.3.19",
+    "status": "current",
+    "syntax": {
+      "class": "type",
+      "constraints": {
+        "enumeration": {
+          "off": 0,
+          "on": 1
+        }
+      },
+      "type": "INTEGER"
+    }
+  },
+  "nvwlanFragmentation": {
+    "class": "objecttype",
+    "maxaccess": "read-write",
+    "name": "nvwlanFragmentation",
+    "nodetype": "scalar",
+    "oid": "1.3.6.1.4.1.763.3.5.3.16",
+    "status": "current",
+    "syntax": {
+      "class": "type",
+      "type": "INTEGER"
+    }
+  },
+  "nvwlanInitialSetup": {
+    "class": "objecttype",
+    "maxaccess": "read-write",
+    "name": "nvwlanInitialSetup",
+    "nodetype": "scalar",
+    "oid": "1.3.6.1.4.1.763.3.5.3.23",
+    "status": "current",
+    "syntax": {
+      "class": "type",
+      "constraints": {
+        "enumeration": {
+          "off": 0,
+          "on": 1
+        }
+      },
+      "type": "INTEGER"
+    }
+  },
+  "nvwlanK128": {
+    "class": "objecttype",
+    "maxaccess": "read-write",
+    "name": "nvwlanK128",
+    "nodetype": "scalar",
+    "oid": "1.3.6.1.4.1.763.3.5.3.10",
+    "status": "current",
+    "syntax": {
+      "class": "type",
+      "type": "OCTET STRING"
+    }
+  },
+  "nvwlanK64_1": {
+    "class": "objecttype",
+    "maxaccess": "read-write",
+    "name": "nvwlanK64-1",
+    "nodetype": "scalar",
+    "oid": "1.3.6.1.4.1.763.3.5.3.6",
+    "status": "current",
+    "syntax": {
+      "class": "type",
+      "type": "OCTET STRING"
+    }
+  },
+  "nvwlanK64_2": {
+    "class": "objecttype",
+    "maxaccess": "read-write",
+    "name": "nvwlanK64-2",
+    "nodetype": "scalar",
+    "oid": "1.3.6.1.4.1.763.3.5.3.7",
+    "status": "current",
+    "syntax": {
+      "class": "type",
+      "type": "OCTET STRING"
+    }
+  },
+  "nvwlanK64_3": {
+    "class": "objecttype",
+    "maxaccess": "read-write",
+    "name": "nvwlanK64-3",
+    "nodetype": "scalar",
+    "oid": "1.3.6.1.4.1.763.3.5.3.8",
+    "status": "current",
+    "syntax": {
+      "class": "type",
+      "type": "OCTET STRING"
+    }
+  },
+  "nvwlanK64_4": {
+    "class": "objecttype",
+    "maxaccess": "read-write",
+    "name": "nvwlanK64-4",
+    "nodetype": "scalar",
+    "oid": "1.3.6.1.4.1.763.3.5.3.9",
+    "status": "current",
+    "syntax": {
+      "class": "type",
+      "type": "OCTET STRING"
+    }
+  },
+  "nvwlanKey": {
+    "class": "objecttype",
+    "maxaccess": "read-write",
+    "name": "nvwlanKey",
+    "nodetype": "scalar",
+    "oid": "1.3.6.1.4.1.763.3.5.3.5",
+    "status": "current",
+    "syntax": {
+      "class": "type",
+      "constraints": {
+        "range": [
+          {
+            "max": 4,
+            "min": 1
+          }
+        ]
+      },
+      "type": "INTEGER"
+    }
+  },
+  "nvwlanLocale": {
+    "class": "objecttype",
+    "maxaccess": "read-write",
+    "name": "nvwlanLocale",
+    "nodetype": "scalar",
+    "oid": "1.3.6.1.4.1.763.3.5.3.17",
+    "status": "current",
+    "syntax": {
+      "class": "type",
+      "type": "INTEGER"
+    }
+  },
+  "nvwlanMacAddress": {
+    "class": "objecttype",
+    "maxaccess": "read-write",
+    "name": "nvwlanMacAddress",
+    "nodetype": "scalar",
+    "oid": "1.3.6.1.4.1.763.3.5.3.1",
+    "status": "current",
+    "syntax": {
+      "class": "type",
+      "type": "MacAddress"
+    }
+  },
+  "nvwlanRate": {
+    "class": "objecttype",
+    "maxaccess": "read-write",
+    "name": "nvwlanRate",
+    "nodetype": "scalar",
+    "oid": "1.3.6.1.4.1.763.3.5.3.14",
+    "status": "current",
+    "syntax": {
+      "class": "type",
+      "constraints": {
+        "enumeration": {
+          "auto": 0,
+          "r1": 11,
+          "r11": 7,
+          "r12": 6,
+          "r18": 5,
+          "r2": 10,
+          "r24": 4,
+          "r36": 3,
+          "r48": 2,
+          "r5": 9,
+          "r54": 1,
+          "r9": 8
+        }
+      },
+      "type": "INTEGER"
+    }
+  },
+  "nvwlanRts": {
+    "class": "objecttype",
+    "maxaccess": "read-write",
+    "name": "nvwlanRts",
+    "nodetype": "scalar",
+    "oid": "1.3.6.1.4.1.763.3.5.3.15",
+    "status": "current",
+    "syntax": {
+      "class": "type",
+      "type": "INTEGER"
+    }
+  },
+  "nvwlanSecurity": {
+    "class": "objecttype",
+    "maxaccess": "read-write",
+    "name": "nvwlanSecurity",
+    "nodetype": "scalar",
+    "oid": "1.3.6.1.4.1.763.3.5.3.4",
+    "status": "current",
+    "syntax": {
+      "class": "type",
+      "constraints": {
+        "enumeration": {
+          "off": 0,
+          "w128": 2,
+          "w64": 1,
+          "wpa": 3
+        }
+      },
+      "type": "INTEGER"
+    }
+  },
+  "nvwlanSharedKeyAuth": {
+    "class": "objecttype",
+    "maxaccess": "read-write",
+    "name": "nvwlanSharedKeyAuth",
+    "nodetype": "scalar",
+    "oid": "1.3.6.1.4.1.763.3.5.3.22",
+    "status": "current",
+    "syntax": {
+      "class": "type",
+      "constraints": {
+        "enumeration": {
+          "off": 0,
+          "on": 1
+        }
+      },
+      "type": "INTEGER"
+    }
+  },
+  "nvwlanSsid": {
+    "class": "objecttype",
+    "maxaccess": "read-write",
+    "name": "nvwlanSsid",
+    "nodetype": "scalar",
+    "oid": "1.3.6.1.4.1.763.3.5.3.3",
+    "status": "current",
+    "syntax": {
+      "class": "type",
+      "type": "OCTET STRING"
+    }
+  },
+  "nvwlanWpaAlgorithm": {
+    "class": "objecttype",
+    "maxaccess": "read-write",
+    "name": "nvwlanWpaAlgorithm",
+    "nodetype": "scalar",
+    "oid": "1.3.6.1.4.1.763.3.5.3.11",
+    "status": "current",
+    "syntax": {
+      "class": "type",
+      "constraints": {
+        "enumeration": {
+          "aes": 1,
+          "tkip": 0
+        }
+      },
+      "type": "INTEGER"
+    }
+  },
+  "nvwlanWpaKey": {
+    "class": "objecttype",
+    "maxaccess": "read-write",
+    "name": "nvwlanWpaKey",
+    "nodetype": "scalar",
+    "oid": "1.3.6.1.4.1.763.3.5.3.12",
+    "status": "current",
+    "syntax": {
+      "class": "type",
+      "type": "OCTET STRING"
+    }
+  },
+  "nvwlanWpaRenewal": {
+    "class": "objecttype",
+    "maxaccess": "read-write",
+    "name": "nvwlanWpaRenewal",
+    "nodetype": "scalar",
+    "oid": "1.3.6.1.4.1.763.3.5.3.13",
+    "status": "current",
+    "syntax": {
+      "class": "type",
+      "type": "INTEGER"
+    },
+    "units": "seconds"
+  },
+  "poeIndex": {
+    "class": "objecttype",
+    "maxaccess": "not-accessible",
+    "name": "poeIndex",
+    "nodetype": "column",
+    "oid": "1.3.6.1.4.1.763.3.5.2.2.1.2",
+    "status": "current",
+    "syntax": {
+      "class": "type",
+      "constraints": {
+        "range": [
+          {
+            "max": 4,
+            "min": 0
+          }
+        ]
+      },
+      "type": "INTEGER"
+    }
+  },
+  "ppp": {
+    "class": "objectidentity",
+    "name": "ppp",
+    "oid": "1.3.6.1.4.1.763.3.4"
+  },
+  "pppAUTHOldState": {
+    "class": "objecttype",
+    "maxaccess": "read-only",
+    "name": "pppAUTHOldState",
+    "nodetype": "column",
+    "oid": "1.3.6.1.4.1.763.3.4.3.1.6",
+    "status": "current",
+    "syntax": {
+      "class": "type",
+      "type": "DisplayString"
+    }
+  },
+  "pppAUTHState": {
+    "class": "objecttype",
+    "maxaccess": "read-only",
+    "name": "pppAUTHState",
+    "nodetype": "column",
+    "oid": "1.3.6.1.4.1.763.3.4.3.1.3",
+    "status": "current",
+    "syntax": {
+      "class": "type",
+      "type": "DisplayString"
+    }
+  },
+  "pppConnect": {
+    "class": "objecttype",
+    "maxaccess": "write-only",
+    "name": "pppConnect",
+    "nodetype": "column",
+    "oid": "1.3.6.1.4.1.763.3.4.1",
+    "status": "current",
+    "syntax": {
+      "class": "type",
+      "type": "INTEGER"
+    }
+  },
+  "pppDisconnect": {
+    "class": "objecttype",
+    "maxaccess": "write-only",
+    "name": "pppDisconnect",
+    "nodetype": "scalar",
+    "oid": "1.3.6.1.4.1.763.3.4.2",
+    "status": "current",
+    "syntax": {
+      "class": "type",
+      "type": "INTEGER"
+    }
+  },
+  "pppEntry": {
+    "class": "objecttype",
+    "indices": [
+      {
+        "implied": 0,
+        "module": "EFFICIENT-MIB",
+        "object": "ifIndex"
+      }
+    ],
+    "maxaccess": "not-accessible",
+    "name": "pppEntry",
+    "nodetype": "row",
+    "oid": "1.3.6.1.4.1.763.3.4.3.1",
+    "status": "mandatory"
+  },
+  "pppIPCPOldState": {
+    "class": "objecttype",
+    "maxaccess": "read-only",
+    "name": "pppIPCPOldState",
+    "nodetype": "column",
+    "oid": "1.3.6.1.4.1.763.3.4.3.1.5",
+    "status": "current",
+    "syntax": {
+      "class": "type",
+      "type": "DisplayString"
+    }
+  },
+  "pppIPCPState": {
+    "class": "objecttype",
+    "maxaccess": "read-only",
+    "name": "pppIPCPState",
+    "nodetype": "column",
+    "oid": "1.3.6.1.4.1.763.3.4.3.1.2",
+    "status": "current",
+    "syntax": {
+      "class": "type",
+      "type": "DisplayString"
+    }
+  },
+  "pppLCPOldState": {
+    "class": "objecttype",
+    "maxaccess": "read-only",
+    "name": "pppLCPOldState",
+    "nodetype": "column",
+    "oid": "1.3.6.1.4.1.763.3.4.3.1.4",
+    "status": "current",
+    "syntax": {
+      "class": "type",
+      "type": "DisplayString"
+    }
+  },
+  "pppLCPState": {
+    "class": "objecttype",
+    "maxaccess": "read-only",
+    "name": "pppLCPState",
+    "nodetype": "column",
+    "oid": "1.3.6.1.4.1.763.3.4.3.1.1",
+    "status": "current",
+    "syntax": {
+      "class": "type",
+      "type": "DisplayString"
+    }
+  },
+  "pppTable": {
+    "class": "objecttype",
+    "maxaccess": "not-accessible",
+    "name": "pppTable",
+    "nodetype": "table",
+    "oid": "1.3.6.1.4.1.763.3.4.3",
+    "status": "mandatory"
+  },
+  "pppUsrPassword": {
+    "class": "objecttype",
+    "maxaccess": "read-write",
+    "name": "pppUsrPassword",
+    "nodetype": "column",
+    "oid": "1.3.6.1.4.1.763.3.5.2.2.1.4",
+    "status": "current",
+    "syntax": {
+      "class": "type",
+      "type": "DisplayString"
+    }
+  },
+  "pppUsrUsername": {
+    "class": "objecttype",
+    "maxaccess": "read-write",
+    "name": "pppUsrUsername",
+    "nodetype": "column",
+    "oid": "1.3.6.1.4.1.763.3.5.2.2.1.3",
+    "status": "current",
+    "syntax": {
+      "class": "type",
+      "type": "DisplayString"
+    }
+  },
+  "pppoe": {
+    "class": "objectidentity",
+    "name": "pppoe",
+    "oid": "1.3.6.1.4.1.763.3.4.4"
+  },
+  "pppoeAccessConcentratorName": {
+    "class": "objecttype",
+    "maxaccess": "read-only",
+    "name": "pppoeAccessConcentratorName",
+    "nodetype": "column",
+    "oid": "1.3.6.1.4.1.763.3.4.4.1.1.1",
+    "status": "current",
+    "syntax": {
+      "class": "type",
+      "type": "DisplayString"
+    }
+  },
+  "pppoeEntry": {
+    "class": "objecttype",
+    "indices": [
+      {
+        "implied": 0,
+        "module": "EFFICIENT-MIB",
+        "object": "ifIndex"
+      }
+    ],
+    "maxaccess": "not-accessible",
+    "name": "pppoeEntry",
+    "nodetype": "row",
+    "oid": "1.3.6.1.4.1.763.3.4.4.1.1",
+    "status": "mandatory"
+  },
+  "pppoeServiceName": {
+    "class": "objecttype",
+    "maxaccess": "read-only",
+    "name": "pppoeServiceName",
+    "nodetype": "column",
+    "oid": "1.3.6.1.4.1.763.3.4.4.1.1.2",
+    "status": "current",
+    "syntax": {
+      "class": "type",
+      "type": "DisplayString"
+    }
+  },
+  "pppoeTable": {
+    "class": "objecttype",
+    "maxaccess": "not-accessible",
+    "name": "pppoeTable",
+    "nodetype": "table",
+    "oid": "1.3.6.1.4.1.763.3.4.4.1",
+    "status": "mandatory"
+  },
+  "product": {
+    "class": "objectidentity",
+    "name": "product",
+    "oid": "1.3.6.1.4.1.763.1"
+  },
+  "router": {
+    "class": "objectidentity",
+    "name": "router",
+    "oid": "1.3.6.1.4.1.763.1.5010.2"
+  },
+  "vccIndex": {
+    "class": "objecttype",
+    "maxaccess": "not-accessible",
+    "name": "vccIndex",
+    "nodetype": "column",
+    "oid": "1.3.6.1.4.1.763.3.5.2.1.1.1",
+    "status": "current",
+    "syntax": {
+      "class": "type",
+      "constraints": {
+        "range": [
+          {
+            "max": 7,
+            "min": 0
+          }
+        ]
+      },
+      "type": "INTEGER"
+    }
+  },
+  "vccIndex2": {
+    "class": "objecttype",
+    "maxaccess": "not-accessible",
+    "name": "vccIndex2",
+    "nodetype": "scalar",
+    "oid": "1.3.6.1.4.1.763.3.5.2.2.1.1",
+    "status": "current",
+    "syntax": {
+      "class": "type",
+      "constraints": {
+        "range": [
+          {
+            "max": 7,
+            "min": 0
+          }
+        ]
+      },
+      "type": "INTEGER"
+    }
+  },
+  "xMIB": {
+    "class": "objectidentity",
+    "name": "xMIB",
+    "oid": "1.3.6.1.4.1.763.3"
+  }
+}

@@ -1,0 +1,288 @@
+{
+  "Counter32": {
+    "class": "type",
+    "name": "Counter32",
+    "type": {
+      "class": "type",
+      "constraints": {
+        "range": [
+          {
+            "max": 4294967295,
+            "min": 0
+          }
+        ]
+      },
+      "tcbase": false,
+      "type": "INTEGER"
+    }
+  },
+  "Counter64": {
+    "class": "type",
+    "name": "Counter64",
+    "type": {
+      "class": "type",
+      "constraints": {
+        "range": [
+          {
+            "max": 18446744073709551615,
+            "min": 0
+          }
+        ]
+      },
+      "tcbase": false,
+      "type": "INTEGER"
+    }
+  },
+  "ExtUTCTime": {
+    "class": "type",
+    "name": "ExtUTCTime",
+    "type": {
+      "class": "type",
+      "constraints": {
+        "size": [
+          {
+            "max": 11,
+            "min": 11
+          },
+          {
+            "max": 13,
+            "min": 13
+          }
+        ]
+      },
+      "tcbase": false,
+      "type": "OCTET STRING"
+    }
+  },
+  "Gauge32": {
+    "class": "type",
+    "name": "Gauge32",
+    "type": {
+      "class": "type",
+      "constraints": {
+        "range": [
+          {
+            "max": 4294967295,
+            "min": 0
+          }
+        ]
+      },
+      "tcbase": false,
+      "type": "INTEGER"
+    }
+  },
+  "Integer32": {
+    "class": "type",
+    "name": "Integer32",
+    "type": {
+      "class": "type",
+      "constraints": {
+        "range": [
+          {
+            "max": 2147483647,
+            "min": -2147483648
+          }
+        ]
+      },
+      "tcbase": false,
+      "type": "INTEGER"
+    }
+  },
+  "IpAddress": {
+    "class": "type",
+    "name": "IpAddress",
+    "type": {
+      "class": "type",
+      "constraints": {
+        "fixed": 4,
+        "size": [
+          {
+            "max": 4,
+            "min": 4
+          }
+        ]
+      },
+      "tcbase": false,
+      "type": "OCTET STRING"
+    }
+  },
+  "NotificationName": {
+    "class": "type",
+    "name": "NotificationName",
+    "type": {
+      "class": "type",
+      "tcbase": false,
+      "type": "OBJECT IDENTIFIER"
+    }
+  },
+  "ObjectName": {
+    "class": "type",
+    "name": "ObjectName",
+    "type": {
+      "class": "type",
+      "tcbase": false,
+      "type": "OBJECT IDENTIFIER"
+    }
+  },
+  "Opaque": {
+    "class": "type",
+    "name": "Opaque",
+    "type": {
+      "class": "type",
+      "tcbase": false,
+      "type": "OCTET STRING"
+    }
+  },
+  "TimeTicks": {
+    "class": "type",
+    "name": "TimeTicks",
+    "type": {
+      "class": "type",
+      "constraints": {
+        "range": [
+          {
+            "max": 4294967295,
+            "min": 0
+          }
+        ]
+      },
+      "tcbase": false,
+      "type": "INTEGER"
+    }
+  },
+  "Unsigned32": {
+    "class": "type",
+    "name": "Unsigned32",
+    "type": {
+      "class": "type",
+      "constraints": {
+        "range": [
+          {
+            "max": 4294967295,
+            "min": 0
+          }
+        ]
+      },
+      "tcbase": false,
+      "type": "INTEGER"
+    }
+  },
+  "directory": {
+    "class": "objectidentity",
+    "name": "directory",
+    "oid": "1.3.6.1.1"
+  },
+  "dod": {
+    "class": "objectidentity",
+    "name": "dod",
+    "oid": "1.3.6"
+  },
+  "enterprises": {
+    "class": "objectidentity",
+    "name": "enterprises",
+    "oid": "1.3.6.1.4.1"
+  },
+  "experimental": {
+    "class": "objectidentity",
+    "name": "experimental",
+    "oid": "1.3.6.1.3"
+  },
+  "imports": {
+    "SNMPv2-CONF": [
+      "MODULE-COMPLIANCE",
+      "NOTIFICATION-GROUP"
+    ],
+    "SNMPv2-SMI": [
+      "Bits",
+      "Counter32",
+      "Counter64",
+      "Gauge32",
+      "Integer32",
+      "IpAddress",
+      "MODULE-IDENTITY",
+      "MibIdentifier",
+      "NOTIFICATION-TYPE",
+      "OBJECT-IDENTITY",
+      "OBJECT-TYPE",
+      "TimeTicks",
+      "Unsigned32",
+      "iso"
+    ],
+    "SNMPv2-TC": [
+      "DisplayString",
+      "PhysAddress",
+      "TEXTUAL-CONVENTION"
+    ],
+    "class": "imports"
+  },
+  "internet": {
+    "class": "objectidentity",
+    "name": "internet",
+    "oid": "1.3.6.1"
+  },
+  "meta": {
+    "comments": [
+      "ASN.1 source file://C:\\Users\\Manuel Pesenti\\MIB\\MIB\\SNMPv2-SMI.mib",
+      "Produced by pysmi-1.6.2 at Sun Sep 14 19:28:45 2025",
+      "On host SurfaceBook platform Windows version 11 by user Manuel Pesenti",
+      "Using Python version 3.13.1 (tags/v3.13.1:0671451, Dec  3 2024, 19:06:28) [MSC v.1942 64 bit (AMD64)]"
+    ],
+    "module": "SNMPv2-SMI"
+  },
+  "mgmt": {
+    "class": "objectidentity",
+    "name": "mgmt",
+    "oid": "1.3.6.1.2"
+  },
+  "mib_2": {
+    "class": "objectidentity",
+    "name": "mib-2",
+    "oid": "1.3.6.1.2.1"
+  },
+  "org": {
+    "class": "objectidentity",
+    "name": "org",
+    "oid": "1.3"
+  },
+  "private": {
+    "class": "objectidentity",
+    "name": "private",
+    "oid": "1.3.6.1.4"
+  },
+  "security": {
+    "class": "objectidentity",
+    "name": "security",
+    "oid": "1.3.6.1.5"
+  },
+  "snmpDomains": {
+    "class": "objectidentity",
+    "name": "snmpDomains",
+    "oid": "1.3.6.1.6.1"
+  },
+  "snmpModules": {
+    "class": "objectidentity",
+    "name": "snmpModules",
+    "oid": "1.3.6.1.6.3"
+  },
+  "snmpProxys": {
+    "class": "objectidentity",
+    "name": "snmpProxys",
+    "oid": "1.3.6.1.6.2"
+  },
+  "snmpV2": {
+    "class": "objectidentity",
+    "name": "snmpV2",
+    "oid": "1.3.6.1.6"
+  },
+  "transmission": {
+    "class": "objectidentity",
+    "name": "transmission",
+    "oid": "1.3.6.1.2.1.10"
+  },
+  "zeroDotZero": {
+    "class": "objectidentity",
+    "name": "zeroDotZero",
+    "oid": "0.0",
+    "status": "current"
+  }
+}
